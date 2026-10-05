@@ -130,6 +130,13 @@ public:
     uint64_t lastInsertId() const;
 
     /**
+     * @brief 转义 SQL 字符串（防注入；拼接 SQL 前必须调用）。
+     * @param input 原始字符串
+     * @return std::string 转义后可安全拼入单引号内的字符串
+     */
+    std::string escapeString(const std::string& input) const;
+
+    /**
      * @brief 最近一次错误的错误码（0 表示无错误）。
      */
     unsigned int errorCode() const;

@@ -1,0 +1,133 @@
+/**
+ * @file ChatServer.h
+ * @brief ChatServer 骨架（M1）：客户端 TCP 接入 + token 校验 + 在线路由 + 顶号。
+ *
+ * 职责（docs/01 §3.3）：
+ * - 客户端长连接 8888，RPC 监听 9001；
+ * - 登录：RPC 校验 token（Status）→ 绑定 uid → 写路由表 → 同账号旧连接顶号；
+ * - 心跳 30s 上报负载到 Status；跨节点推送方法 PushToUid。
+ */
+#pragma once
+
+#include <boost/asio.hpp>
+
+namespace asio = boost::asio;  ///< 项目内简写（见 docs/01：全栈 boost）
+using asio::ip::tcp;             ///< TCP 类型简写
+
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+
+#include "lingxi/base/NonCopyable.h"
+#include "lingxi/base/ThreadPool.h"
+#include "lingxi/db/RedisPool.h"
+#include "lingxi/rpc/RpcClient.h"
+#include "lingxi/rpc/RpcServer.h"
+
+namespace lingxi {
+
+class ChatSession;
+
+/**
+ * @brief ChatServer 核心服务。
+ */
+class ChatServer : private NonCopyable {
+public:
+    /**
+     * @brief 构造：读取配置（config/chatserver 段）并初始化各组件。
+     */
+    ChatServer(asio::io_context& ioContext, ThreadPool& handlerPool);
+
+    /**
+     * @brief 启动：RPC 注册 + 客户端接受循环 + 心跳定时器。
+     */
+    void start();
+
+    /**
+     * @brief 登录成功后绑定会话（重复登录触发顶号）。
+     * @param uid     登录用户
+     * @param session 新会话
+     * @return bool true=绑定成功；false=参数异常
+     */
+    void bindSession(int64_t uid, const std::shared_ptr<ChatSession>& session);
+
+    /**
+     * @brief 解绑会话（登出/断开），并清理路由表。
+     */
+    void unbindSession(int64_t uid, ChatSession* session);
+
+    /**
+     * @brief 当前在线连接数（心跳上报的负载值）。
+     */
+    int currentLoad() const;
+
+    /**
+     * @brief Status RPC 客户端池（ChatSession 校验 token 用）。
+     */
+    rpc::RpcClientPool* statusRpc() { return m_statusRpc.get(); }
+
+    /**
+     * @brief 处理器线程池（登录等阻塞操作移出 IO 线程）。
+     */
+    ThreadPool& handlerPool() { return m_handlerPool; }
+
+    /**
+     * @brief 本实例编号（路由表值）。
+     */
+    int32_t serverId() const { return m_serverId; }
+
+private:
+    /**
+     * @brief 异步接受客户端连接。
+     */
+    void doAccept();
+
+    /**
+     * @brief 启动 30s 心跳定时器（向 Status 上报负载）。
+     */
+    void startHeartbeatTimer();
+
+    /**
+     * @brief 心跳节拍：上报负载后自行续期（定时器经 shared_ptr 传递，避免悬垂）。
+     */
+    void doHeartbeat(const std::shared_ptr<asio::steady_timer>& timer);
+
+    /**
+     * @brief 向 StatusServer 注册自身（启动时同步调用一次）。
+     * @return bool 成功为 true
+     */
+    bool registerToStatus();
+
+    /**
+     * @brief 通过 Redis 写路由表 route:uid:{uid} = serverId。
+     */
+    void writeRoute(int64_t uid);
+
+    /**
+     * @brief 通过 Redis 清理路由表（仅当值仍为本实例时）。
+     */
+    void clearRoute(int64_t uid);
+
+    /**
+     * @brief 顶号：向旧会话下发 KickNotice 并关闭。
+     */
+    void kickExisting(int64_t uid, const std::shared_ptr<ChatSession>& newSession);
+
+    asio::io_context& m_io;
+    ThreadPool& m_handlerPool;
+    tcp::acceptor m_clientAcceptor;                    ///< 客户端监听器
+    std::unique_ptr<rpc::RpcServer> m_rpcServer;       ///< RPC 服务端
+    std::unique_ptr<rpc::RpcClientPool> m_statusRpc;   ///< Status RPC 客户端
+    std::unique_ptr<db::RedisConnectionPool> m_redis;  ///< Redis 池（路由表）
+
+    int32_t m_serverId = 1;                            ///< 实例编号
+    std::string m_clientHost;                          ///< 对外地址
+    unsigned short m_clientPort = 8888;                ///< 对外端口
+
+    std::mutex m_sessionsMutex;                                        ///< 会话表锁
+    std::map<int64_t, std::shared_ptr<ChatSession>> m_uidToSession;    ///< uid → 会话
+    std::atomic<int32_t> m_load{0};                                    ///< 当前连接数
+};
+
+} // namespace lingxi

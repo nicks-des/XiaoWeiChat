@@ -10,6 +10,36 @@
 | 日期 | 里程碑 | 用例范围 | 通过/总数 | 缺陷单 | 明细 |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-05 | M0 | 全量（GTest 自动化） | 23/23（100%） | 过程中修复 3 处，均当场回归通过 | 见下节 |
+| 2026-10-05 | M1 | 单测全量 + m1_flow 系统联调 | 单测 30/30；m1_flow 连续 5/5 PASS | 过程中修复 6 处，均当场回归通过 | 见下节 |
+
+---
+
+## 2026-10-05 M1 测试轮（第一轮归档）
+
+- **环境**：DEV 单机三进程（statusserver:9000 / gateserver:8080 / chatserver:8888+9001）
+  + MySQL:3316 + Redis:6379；联调程序 `tools/system_test/m1_flow.exe`。
+- **单元测试：30/30 通过**（新增 Crypto 4 项：盐/哈希/校验/HMAC RFC4231 已知向量；
+  RpcFrame 3 项：回环/截断/标志位）。
+- **系统联调 m1_flow：连续 5/5 PASS**，覆盖：
+  1. 注册成功（uid 雪花 ID 落库）；2. 重复用户名 409；3. 错误密码 401；
+  4. 登录返回 HMAC token + ChatServer 分配（host/port）；
+  5. TCP 长连接 token 校验登录成功（LoginResponse）；
+  6. **顶号**：同 uid 第二处登录，第一处收到 KickNotice(0x0104)；
+  7. 伪造 token（篡改签名）→ 401 拒绝。
+- **稳定性**：三服务连续运行 65s+（跨越 2 个心跳周期）无崩溃；多轮联调后仍存活。
+- **过程中发现并修复（全部回归通过）**：
+  1. **Beast 响应 UAF**：`http::async_write` 只持有消息引用，栈上 response 写完即析构 →
+     改 shared_ptr 持有至完成回调（Gate 响应后秒崩）；
+  2. **心跳 lambda 悬垂**：递归 lambda 捕获栈上 `std::function` 引用，宿主函数返回后悬垂 →
+     改成员函数递归 + shared_ptr 定时器（Chat 启动后整 30s 崩溃）；
+  3. **顶号通知丢失（竞态）**：sendFrame 与 close 两次独立投递 strand 存在顺序风险 →
+     新增 `sendFrameThenClose`（单任务内入队末帧+置关闭标志）；
+  4. **Windows close 丢数据**：写完即 close 会 RST 丢弃未刷出数据 → 优雅关闭
+     （flush 后 shutdown_send 发 FIN，延迟 2s close）；
+  5. **asio io_context 复用**：跑空后 stopped，复用必须 `restart()`（联调程序第二次 run 立即返回）；
+  6. **MySQL salt 字段**：DDL CHAR(16) 放不下 32 位十六进制盐 → CHAR(32)（文档同步修订）。
+- **联调方法学**：Python 裸 socket 复现脚本用于区分「服务端行为」与「测试程序自身」问题——
+  本轮两次成功定位（服务端正常 → 疑点收窄到客户端；字节层 RST → 确认关闭时序）。
 
 ---
 

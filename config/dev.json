@@ -4,6 +4,22 @@
     "name": "lingxi-dev",
     "machineId": 1
   },
+  "statusserver": {
+    "host": "127.0.0.1",
+    "rpcPort": 9000,
+    "hmacSecret": "lingxi-dev-hmac-secret-2026-please-rotate",
+    "tokenTtlMs": 604800000
+  },
+  "gateserver": {
+    "httpPort": 8080,
+    "machineId": 11
+  },
+  "chatserver": {
+    "host": "127.0.0.1",
+    "clientPort": 8888,
+    "rpcPort": 9001,
+    "serverId": 1
+  },
   "log": {
     "level": "debug",
     "dir": "logs"

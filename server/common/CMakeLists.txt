@@ -9,6 +9,11 @@ add_library(lingxi_common STATIC
     src/net/BufReader.cpp
     src/db/MySqlPool.cpp
     src/db/RedisPool.cpp
+    src/rpc/RpcFrame.cpp
+    src/rpc/RpcServer.cpp
+    src/rpc/RpcClient.cpp
+    src/http/HttpServer.cpp
+    src/crypto/Crypto.cpp
 )
 
 target_include_directories(lingxi_common
@@ -19,6 +24,8 @@ target_include_directories(lingxi_common
 target_link_libraries(lingxi_common
     PUBLIC spdlog::spdlog
            nlohmann_json::nlohmann_json
+           OpenSSL::SSL
+           OpenSSL::Crypto
            ws2_32                        # Boost.Asio 在 Windows 的网络依赖
     PRIVATE hiredis::hiredis
 )

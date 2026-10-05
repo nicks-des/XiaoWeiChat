@@ -187,3 +187,110 @@ message AiSwipeRequest {
   int64 conv_seq = 2; ///< 目标 AI 消息 seq
   int32 action  = 3;  ///< 0 重新生成 1 下一版本 2 上一版本
 }
+
+/* ========== 内部服务治理（serviceId=0x01 StatusServer，docs/01 §4.4） ========== */
+
+/**
+ * @brief 服务类型枚举。
+ */
+enum ServerType {
+  SERVER_NONE   = 0;  ///< 占位
+  SERVER_GATE   = 1;  ///< 接入网关
+  SERVER_STATUS = 2;  ///< 注册中心
+  SERVER_CHAT   = 3;  ///< 消息核心节点
+  SERVER_FILE   = 4;  ///< 文件节点
+  SERVER_AI     = 5;  ///< 酒馆节点
+}
+
+/**
+ * @brief 服务注册请求：服务启动时上报自身信息（methodId=0x01）。
+ */
+message RegisterRequest {
+  int32  server_type = 1;  ///< ServerType
+  int32  server_id   = 2;  ///< 实例编号（多实例间互异）
+  string rpc_host    = 3;  ///< RPC 监听地址
+  int32  rpc_port    = 4;  ///< RPC 监听端口
+  string client_host = 5;  ///< 面向客户端的地址（chat 类型使用）
+  int32  client_port = 6;  ///< 面向客户端的端口（chat 类型使用）
+  int32  load        = 7;  ///< 当前负载（chat 为连接数）
+}
+
+/**
+ * @brief 服务注册响应。
+ */
+message RegisterResponse {
+  int32  err_code = 1;  ///< 0 成功
+  string err_msg  = 2;
+}
+
+/**
+ * @brief 心跳请求：30s 周期，3 次未收到则摘除（methodId=0x02）。
+ */
+message HeartbeatRequest {
+  int32 server_type = 1;  ///< ServerType
+  int32 server_id   = 2;  ///< 实例编号
+  int32 load        = 3;  ///< 当前负载
+}
+
+/**
+ * @brief 心跳响应。
+ */
+message HeartbeatResponse {
+  int32 err_code = 1;
+}
+
+/**
+ * @brief token 校验请求（ChatServer → Status，methodId=0x03）。
+ */
+message VerifyTokenRequest {
+  int64  uid   = 1;  ///< 用户 ID
+  string token = 2;  ///< HMAC 访问令牌
+}
+
+/**
+ * @brief token 校验响应。
+ */
+message VerifyTokenResponse {
+  int32 err_code = 1;  ///< 0 合法；401 失效/伪造
+  string err_msg = 2;
+  int64  uid     = 3;  ///< 校验通过时回填
+}
+
+/**
+ * @brief ChatServer 分配请求（Gate → Status，methodId=0x04）。
+ */
+message AllocateChatServerRequest {
+  int64 uid = 1;  ///< 待登录用户
+}
+
+/**
+ * @brief ChatServer 分配响应：附带签发的访问令牌（docs/01 §5.1）。
+ */
+message AllocateChatServerResponse {
+  int32  err_code       = 1;
+  string err_msg        = 2;
+  string chat_host      = 3;  ///< 客户端直连的 ChatServer 地址
+  int32  chat_port      = 4;  ///< 客户端直连端口
+  int32  chat_server_id = 5;  ///< 分配的实例编号
+  string token          = 6;  ///< HMAC 访问令牌
+  int64  token_expire_ms = 7; ///< 令牌过期时间戳
+}
+
+/* ========== ChatServer 内部方法（serviceId=0x02） ========== */
+
+/**
+ * @brief 跨节点消息推送（ChatServer → 目标 ChatServer，methodId=0x01）。
+ */
+message PushToUidRequest {
+  int64 target_uid = 1;  ///< 目标用户
+  int32 msg_id     = 2;  ///< 待下发的 IM 帧 msgId（如 0x0104 顶号）
+  bytes msg_body   = 3;  ///< 待下发的 IM 帧 protobuf body
+}
+
+/**
+ * @brief 推送结果。
+ */
+message PushToUidResponse {
+  int32 err_code = 1;
+  bool  online   = 2;  ///< 目标是否在本机在线
+}

@@ -9,6 +9,7 @@
     "nlohmann-json",
     "protobuf",
     "hiredis",
-    "gtest"
+    "gtest",
+    "openssl"
   ]
 }

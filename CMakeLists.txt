@@ -41,6 +41,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(hiredis CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)  # SHA256/HMAC（docs/02 §6）
 
 # Qt 为可选依赖：未找到时跳过所有 Qt 目标（M0 仅影响 qt_hello 演示）
 find_package(Qt5 QUIET COMPONENTS Core Gui Widgets PATHS ${LINGXI_QT_DIR} NO_DEFAULT_PATH)
@@ -53,10 +54,13 @@ endif()
 include(CTest)
 
 # ---- 子目录 ----
-add_subdirectory(server/common)   # 公共库（日志/配置/协议帧/线程池/ID/连接池）
+add_subdirectory(server/common)   # 公共库（日志/配置/协议帧/线程池/ID/连接池/RPC/HTTP/加密）
 add_subdirectory(proto)           # Protobuf 协议库
-add_subdirectory(server/demos)    # 服务端演示（boost echo 编译链验证）
+add_subdirectory(server/gateserver)
+add_subdirectory(server/statusserver)
+add_subdirectory(server/chatserver)
 add_subdirectory(tools/demos)     # 工具演示（qt_hello 编译链验证）
+add_subdirectory(tools/system_test)  # 系统级联调程序（m1_flow）
 
 if(LINGXI_BUILD_TESTS)
     add_subdirectory(server/common/tests)

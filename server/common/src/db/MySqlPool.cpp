@@ -6,6 +6,9 @@
 
 #include <mysql.h>
 
+#include <cstdlib>
+#include <vector>
+
 #include "lingxi/logging/Logger.h"
 
 namespace lingxi::db {
@@ -135,6 +138,16 @@ bool MySqlConnection::query(const std::string& sql, MySqlResult& out) {
 
 uint64_t MySqlConnection::lastInsertId() const {
     return m_mysql == nullptr ? 0 : mysql_insert_id(m_mysql);
+}
+
+std::string MySqlConnection::escapeString(const std::string& input) const {
+    if (m_mysql == nullptr) {
+        return input;
+    }
+    std::vector<char> buffer(input.size() * 2 + 1);
+    const unsigned long length = mysql_real_escape_string(
+        m_mysql, buffer.data(), input.c_str(), static_cast<unsigned long>(input.size()));
+    return std::string(buffer.data(), length);
 }
 
 unsigned int MySqlConnection::errorCode() const {

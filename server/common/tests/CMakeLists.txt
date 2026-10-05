@@ -12,6 +12,8 @@ add_executable(test_lingxi_common
     test_config.cpp
     test_pools.cpp
     test_proto.cpp
+    test_crypto.cpp
+    test_rpcframe.cpp
 )
 
 target_link_libraries(test_lingxi_common
