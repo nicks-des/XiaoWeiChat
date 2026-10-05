@@ -59,6 +59,7 @@ add_subdirectory(proto)           # Protobuf 协议库
 add_subdirectory(server/gateserver)
 add_subdirectory(server/statusserver)
 add_subdirectory(server/chatserver)
+add_subdirectory(client)          # Qt5 客户端（Qt5 未找到时自动跳过）
 add_subdirectory(tools/demos)     # 工具演示（qt_hello 编译链验证）
 add_subdirectory(tools/system_test)  # 系统级联调程序（m1_flow）
 
