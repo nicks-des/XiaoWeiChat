@@ -74,8 +74,8 @@ RedisConnectionPool::~RedisConnectionPool() {
     m_condition.notify_all();
 }
 
-std::shared_ptr<RedisConnection> RedisConnectionPool::createConnection() {
-    auto conn = std::make_shared<RedisConnection>();
+std::unique_ptr<RedisConnection> RedisConnectionPool::createConnection() {
+    auto conn = std::make_unique<RedisConnection>();
     if (!conn->connect(m_options)) {
         return nullptr;
     }
@@ -94,34 +94,27 @@ std::shared_ptr<RedisConnection> RedisConnectionPool::acquire(std::chrono::milli
         return nullptr;
     }
 
+    std::unique_ptr<RedisConnection> conn;
     if (!m_idle.empty()) {
-        auto conn = m_idle.back();
+        conn = std::move(m_idle.back());
         m_idle.pop_back();
         ++m_borrowed;
-        auto pool = this;
-        return std::shared_ptr<RedisConnection>(conn.release(), [pool](RedisConnection* c) {
-            std::lock_guard<std::mutex> guard(pool->m_mutex);
-            if (pool->m_stopped) {
-                delete c;
-            } else {
-                pool->m_idle.emplace_back(c);
-                --pool->m_borrowed;
-                pool->m_condition.notify_one();
-            }
-        });
+    } else {
+        // 预占名额后解锁建连：防止并发建连超发突破池上限
+        ++m_borrowed;
+        lock.unlock();
+        conn = createConnection();
+        lock.lock();
+        if (conn == nullptr) {
+            --m_borrowed;
+            m_condition.notify_one();
+            return nullptr;
+        }
     }
 
-    ++m_borrowed;
-    lock.unlock();
-    auto created = createConnection();
-    lock.lock();
-    if (created == nullptr) {
-        --m_borrowed;
-        m_condition.notify_one();
-        return nullptr;
-    }
-    auto pool = this;
-    return std::shared_ptr<RedisConnection>(created.release(), [pool](RedisConnection* c) {
+    auto* pool = this;
+    auto* raw = conn.release();
+    return std::shared_ptr<RedisConnection>(raw, [pool](RedisConnection* c) {
         std::lock_guard<std::mutex> guard(pool->m_mutex);
         if (pool->m_stopped) {
             delete c;

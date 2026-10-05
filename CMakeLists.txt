@@ -19,10 +19,15 @@ set(CMAKE_AUTOMOC ON)                       # Qt 元对象编译（Q_OBJECT 类�
 # Windows 常规宏：避免 min/max 宏污染与 WinSock 版本告警
 add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
 
-# ---- 统一输出目录：DLL 复制与测试运行都指向 build/bin ----
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+# MSVC：源码统一按 UTF-8 读取/输出（避免中文注释 C4819 与字符串字面量乱码）
+if(MSVC)
+    add_compile_options(/utf-8)
+endif()
+
+# ---- 统一输出目录：显式带 $<CONFIG>，避免 VS 多配置生成器自动追加配置子目录带来的路径分歧 ----
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/$<CONFIG>)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/$<CONFIG>)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib/$<CONFIG>)
 
 # ---- 可配置的本机依赖路径（均有默认值，build.bat 会显式传入） ----
 set(LINGXI_BOOST_ROOT "D:/cpp/boost_1_90_0" CACHE PATH "Boost 根目录（头文件 + stage 预编译库）")

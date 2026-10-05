@@ -12,11 +12,12 @@
 namespace {
 
 /**
- * @brief 写一个临时 JSON 文件供测试加载。
+ * @brief 写一个临时 JSON 文件供测试加载（文件名带序号，避免用例间互相覆盖）。
  */
-std::string writeTempJson(const std::string& content) {
-    const std::string path =
-        (std::filesystem::temp_directory_path() / "lingxi_config_test.json").string();
+std::string writeTempJson(const std::string& content, int seq) {
+    const std::string path = (std::filesystem::temp_directory_path() /
+                              ("lingxi_config_test_" + std::to_string(seq) + ".json"))
+                                 .string();
     std::ofstream file(path);
     file << content;
     return path;
@@ -29,7 +30,7 @@ TEST(ConfigTest, LoadAndGetWithDefaults) {
     const std::string path = writeTempJson(R"({
         "mysql": {"host": "10.0.0.1", "port": 3316},
         "log": {"level": "debug"}
-    })");
+    })", 1);
 
     lingxi::Config config;
     ASSERT_TRUE(config.load(path));
@@ -50,11 +51,11 @@ TEST(ConfigTest, OverrideDeepMerge) {
     const std::string base = writeTempJson(R"({
         "mysql": {"host": "10.0.0.1", "port": 3316, "poolSize": 4},
         "log": {"level": "info"}
-    })");
+    })", 2);
     const std::string local = writeTempJson(R"({
         "mysql": {"poolSize": 16},
         "log": {"dir": "/var/log"}
-    })");
+    })", 3);
 
     lingxi::Config config;
     ASSERT_TRUE(config.load(base));
@@ -70,7 +71,7 @@ TEST(ConfigTest, OverrideDeepMerge) {
  * @brief 非法 JSON 拒绝加载。
  */
 TEST(ConfigTest, InvalidJsonRejected) {
-    const std::string path = writeTempJson("{ not valid json !!!");
+    const std::string path = writeTempJson("{ not valid json !!!", 4);
 
     lingxi::Config config;
     EXPECT_FALSE(config.load(path));

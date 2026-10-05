@@ -30,5 +30,5 @@ target_link_libraries(lingxi_common PRIVATE ${LINGXI_MYSQL_ROOT}/lib/libmysql.li
 # libmysql.dll 复制到运行时目录，保证测试与演示开箱即用
 add_custom_command(TARGET lingxi_common POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${LINGXI_MYSQL_ROOT}/lib/libmysql.dll $<TARGET_FILE_DIR:lingxi_common>
-    COMMENT "复制 libmysql.dll 到输出目录")
+        ${LINGXI_MYSQL_ROOT}/lib/libmysql.dll ${CMAKE_BINARY_DIR}/bin/$<CONFIG>
+    COMMENT "复制 libmysql.dll 到运行时目录")

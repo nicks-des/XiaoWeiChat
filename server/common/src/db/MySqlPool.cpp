@@ -159,8 +159,8 @@ MySqlConnectionPool::~MySqlConnectionPool() {
     m_condition.notify_all();
 }
 
-std::shared_ptr<MySqlConnection> MySqlConnectionPool::createConnection() {
-    auto conn = std::make_shared<MySqlConnection>();
+std::unique_ptr<MySqlConnection> MySqlConnectionPool::createConnection() {
+    auto conn = std::make_unique<MySqlConnection>();
     if (!conn->connect(m_options)) {
         LX_LOG_ERROR("mysql connect failed: [{}] {}", conn->errorCode(), conn->errorMessage());
         return nullptr;
@@ -180,36 +180,28 @@ std::shared_ptr<MySqlConnection> MySqlConnectionPool::acquire(std::chrono::milli
         return nullptr;
     }
 
+    std::unique_ptr<MySqlConnection> conn;
     if (!m_idle.empty()) {
-        auto conn = m_idle.back();
+        conn = std::move(m_idle.back());
         m_idle.pop_back();
         ++m_borrowed;
-        // 归还闭包：捕获 this，析构时回池（池需保证生命周期长于归还动作）
-        auto pool = this;
-        return std::shared_ptr<MySqlConnection>(conn.release(), [pool](MySqlConnection* c) {
-            std::lock_guard<std::mutex> guard(pool->m_mutex);
-            if (pool->m_stopped) {
-                delete c;
-            } else {
-                pool->m_idle.emplace_back(c);
-                --pool->m_borrowed;
-                pool->m_condition.notify_one();
-            }
-        });
+    } else {
+        // 预占名额后解锁建连：防止并发建连超发突破池上限
+        ++m_borrowed;
+        lock.unlock();
+        conn = createConnection();
+        lock.lock();
+        if (conn == nullptr) {
+            --m_borrowed;
+            m_condition.notify_one();
+            return nullptr;
+        }
     }
 
-    // 池未满：现场建一条新连接
-    ++m_borrowed;
-    lock.unlock();
-    auto created = createConnection();
-    lock.lock();
-    if (created == nullptr) {
-        --m_borrowed;
-        m_condition.notify_one();
-        return nullptr;
-    }
-    auto pool = this;
-    return std::shared_ptr<MySqlConnection>(created.release(), [pool](MySqlConnection* c) {
+    // 归还闭包：捕获 this，析构时回池（池需保证生命周期长于归还动作）
+    auto* pool = this;
+    auto* raw = conn.release();
+    return std::shared_ptr<MySqlConnection>(raw, [pool](MySqlConnection* c) {
         std::lock_guard<std::mutex> guard(pool->m_mutex);
         if (pool->m_stopped) {
             delete c;

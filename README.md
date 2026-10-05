@@ -73,19 +73,27 @@
   关键算法与决策处补充行内注释说明「为什么」。
 - 每个里程碑结束执行 `clang-format` 全量格式化并跑通全部测试后才允许归档。
 
-## 6. 快速开始（M0 完成后补充）
+## 6. 快速开始
 
-本机环境盘点（2026-10-05 核实）：
+### 6.1 环境盘点（2026-10-05 核实）
 
 | 依赖 | 状态 |
 | --- | --- |
-| Boost 1.90.0 | ✅ D:\cpp\boost_1_90_0（含 vc143 x64 预编译静态库，debug/release） |
-| Qt 5.12.11 | ✅ D:\Qt\Qt5.12.11 |
-| MySQL 8.0.28 / Connector C++ 8.3 | ✅ D:\cpp\mysql、D:\cpp\mysql-connector-c++-8.3.0-winx64 |
-| Redis | ✅ C:\Redis |
-| FFmpeg 4.2.2（含开发库） | ✅ D:\cpp\ffmpeg-4.2.2 |
-| CMake | ✅ VS 18 自带（Community），M0 配置 PATH |
-| vcpkg | ❌ M0 安装（用于 protobuf / libdatachannel / spdlog / hiredis / gtest 等） |
-| OpenSSL / Protobuf / libdatachannel | ❌ M0 经 vcpkg 安装 |
+| Boost 1.90.0 | ✅ D:\cpp\boost_1_90_0（含 vc143 x64 预编译静态库） |
+| Qt 5.12.11 MSVC 套件 | ✅ D:\Qt\aqt\5.12.11\msvc2017_64（aqtinstall 无头安装） |
+| MySQL 8.0.28 | ✅ D:\cpp\mysql（服务实例 3308）；**项目专属开发实例 3316**（tools/scripts/dev_services.sh） |
+| Redis | ✅ C:\Redis（项目以专属目录启动于 6379，禁用持久化） |
+| FFmpeg 4.2.2 | ✅ D:\cpp\ffmpeg-4.2.2（M4/M5 使用） |
+| CMake 4.2.3 | ✅ VS 18 自带（tools/scripts/env.bat 已配置路径） |
+| vcpkg | ✅ D:\cpp\vcpkg（已装 protobuf 33.4 / spdlog 1.17 / hiredis / gtest 1.18 / nlohmann-json） |
 
-规划中：一键构建脚本、服务端启动顺序、客户端运行方式。
+### 6.2 构建与测试
+
+```bat
+build.bat          &rem 一键配置+编译（Debug）
+test.bat           &rem 一键跑全量单测（当前 23/23 通过）
+bash tools/scripts/dev_services.sh   &rem 启动项目专属 MySQL(3316)/Redis(6379)
+```
+
+注意：运行 Qt 相关目标前需将 `D:\Qt\aqt\5.12.11\msvc2017_64\bin` 加入 PATH（Qt DLL 定位）；
+本机代理 + schannel 环境下 curl/vcpkg 下载需 `--ssl-no-revoke`（详见 docs/devlog）。

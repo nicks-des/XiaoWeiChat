@@ -105,11 +105,14 @@ TEST(BufReaderTest, HalfPlusWholeMixed) {
 }
 
 /**
- * @brief 脏数据：长度字段越界时丢弃缓冲并返回 false。
+ * @brief 脏数据：长度字段越界（凑满帧头后）丢弃缓冲并返回 false。
  */
 TEST(BufReaderTest, GarbageLengthDropped) {
     BufReader reader;
-    std::string garbage = "\xFF\xFF\xFF\xFF\x00\x00";  // totalLength 越界
+    // 12 字节：totalLength=0xFFFFFFFF 越界 + 8 字节填充，凑满帧头触发校验
+    // 显式长度构造：字面量含 NUL 字节，std::string 依长度截取（避免 strlen 截断）
+    const char garbageBytes[] = "\xFF\xFF\xFF\xFF\x01\x02\x03\x04\x05\x06\x07\x08";
+    std::string garbage(garbageBytes, 12);
     reader.feed(garbage.data(), garbage.size());
 
     DecodedPacket packet;

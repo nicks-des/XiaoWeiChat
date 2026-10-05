@@ -19,8 +19,7 @@
 
 struct MYSQL;       ///< libmysqlclient 前向声明（避免在公共头暴露 C API）
 struct MYSQL_RES;
-struct st_mysql_field;
-typedef struct st_mysql_field MYSQL_FIELD;
+typedef char** MYSQL_ROW;  ///< 行指针（与 libmysqlclient 中定义一致，可重复声明）
 
 namespace lingxi::db {
 
@@ -174,13 +173,14 @@ private:
     /**
      * @brief 新建一条连接（带日志）。
      */
-    std::shared_ptr<MySqlConnection> createConnection();
+    std::unique_ptr<MySqlConnection> createConnection();
 
-    MySqlOptions m_options;                          ///< 连接配置
-    std::deque<std::shared_ptr<MySqlConnection>> m_idle; ///< 空闲连接队列
-    mutable std::mutex m_mutex;                      ///< 队列互斥锁
-    std::condition_variable m_condition;             ///< 归还通知
-    bool m_stopped = false;                          ///< 池停止标志
+    MySqlOptions m_options;                              ///< 连接配置
+    std::deque<std::unique_ptr<MySqlConnection>> m_idle; ///< 空闲连接队列（独占所有权）
+    size_t m_borrowed = 0;                               ///< 借出连接数
+    mutable std::mutex m_mutex;                          ///< 队列互斥锁
+    std::condition_variable m_condition;                 ///< 归还通知
+    bool m_stopped = false;                              ///< 池停止标志
 };
 
 } // namespace lingxi::db

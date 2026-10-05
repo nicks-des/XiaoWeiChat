@@ -25,6 +25,11 @@ public:
     static Config& instance();
 
     /**
+     * @brief 构造独立实例（公开以便单元测试构造局部配置对象；生产代码请用 instance()）。
+     */
+    Config() = default;
+
+    /**
      * @brief 加载主配置文件（整体替换当前内容）。
      * @param path JSON 文件路径
      * @return bool 文件存在且 JSON 合法时为 true
@@ -65,9 +70,6 @@ public:
      * @return bool 存在为 true
      */
     bool contains(const std::string& dottedKey) const;
-
-private:
-    Config() = default;
 
     /**
      * @brief 按点路径查找 JSON 节点。

@@ -70,18 +70,35 @@ private:
 /**
  * @brief 异步 echo 服务器：循环接受连接。
  */
-void runEchoServer(boost::asio::io_context& ioContext) {
-    tcp::acceptor acceptor(ioContext, {tcp::v4(), kEchoPort});
-    auto acceptLoop = [&]() {
-        acceptor.async_accept([&](boost::system::error_code ec, tcp::socket socket) {
+class EchoServer {
+public:
+    /**
+     * @param ioContext 事件循环
+     * @param port 监听端口
+     */
+    EchoServer(boost::asio::io_context& ioContext, unsigned short port)
+        : m_acceptor(ioContext, {tcp::v4(), port}) {}
+
+    /**
+     * @brief 启动异步接受循环。
+     */
+    void start() { doAccept(); }
+
+private:
+    /**
+     * @brief 异步接受一个连接，完成后继续下一轮。
+     */
+    void doAccept() {
+        m_acceptor.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
             if (!ec) {
                 std::make_shared<EchoSession>(std::move(socket))->start();
             }
-            acceptLoop();  // 继续接受下一个连接
+            doAccept();
         });
-    };
-    acceptLoop();
-}
+    }
+
+    tcp::acceptor m_acceptor;  ///< 监听器
+};
 
 } // namespace
 
@@ -93,7 +110,8 @@ int main() {
     lingxi::log::init("boost_echo", "info", "logs");
 
     boost::asio::io_context ioContext;
-    runEchoServer(ioContext);
+    EchoServer server(ioContext, kEchoPort);
+    server.start();
 
     // 服务跑在独立线程；客户端完成后 stop io_context 收尾
     std::thread serverThread([&ioContext] { ioContext.run(); });

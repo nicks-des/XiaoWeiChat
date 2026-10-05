@@ -11,11 +11,16 @@
 namespace {
 
 /**
- * @brief 懒加载开发配置（工作目录为 build/bin，向上一级即仓库根的 config/dev.json）。
+ * @brief 懒加载开发配置：优先使用编译期注入的绝对路径，失败回退相对路径。
  */
 void loadDevConfigOnce() {
     static const bool loaded = [] {
         auto& config = lingxi::Config::instance();
+#ifdef LINGXI_DEV_CONFIG
+        if (config.load(LINGXI_DEV_CONFIG)) {
+            return true;
+        }
+#endif
         return config.load("../../config/dev.json") || config.load("config/dev.json");
     }();
     (void)loaded;

@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <winsock2.h>  ///< 必须先于 hiredis 引入，提供 timeval（WIN32_LEAN_AND_MEAN 下不冲突）
+
 #include <hiredis/hiredis.h>
 
 #include <chrono>
@@ -61,10 +63,12 @@ public:
     bool ok() const { return m_reply != nullptr && m_reply->type != REDIS_REPLY_ERROR; }
 
     /**
-     * @brief 取字符串回复内容（非字符串类型返回空串）。
+     * @brief 取字符串类回复内容（兼容 STRING 与 STATUS 类型，如 PING→PONG；其余返回空串）。
      */
     std::string str() const {
-        if (m_reply == nullptr || m_reply->type != REDIS_REPLY_STRING) {
+        if (m_reply == nullptr ||
+            (m_reply->type != REDIS_REPLY_STRING && m_reply->type != REDIS_REPLY_STATUS &&
+             m_reply->type != REDIS_REPLY_ERROR)) {
             return {};
         }
         return std::string(m_reply->str, m_reply->len);
@@ -162,10 +166,10 @@ private:
     /**
      * @brief 新建一条连接（带日志）。
      */
-    std::shared_ptr<RedisConnection> createConnection();
+    std::unique_ptr<RedisConnection> createConnection();
 
     RedisOptions m_options;                              ///< 连接配置
-    std::deque<std::shared_ptr<RedisConnection>> m_idle; ///< 空闲连接队列
+    std::deque<std::unique_ptr<RedisConnection>> m_idle; ///< 空闲连接队列（独占所有权）
     size_t m_borrowed = 0;                               ///< 借出连接数
     mutable std::mutex m_mutex;                          ///< 队列互斥锁
     std::condition_variable m_condition;                 ///< 归还通知

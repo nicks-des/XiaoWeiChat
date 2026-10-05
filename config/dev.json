@@ -1,11 +1,5 @@
-/**
- * @file dev.json
- * @brief 开发环境统一配置（入库基线；敏感覆盖走 *.local.json，不入 git）。
- *
- * MySQL 使用项目专属开发实例（127.0.0.1:3316，初始化 root 空密码），
- * 与本机既有 MySQL 服务（3308）互不干扰；详见 docs/devlog 与 tools/scripts。
- */
 {
+  "_comment": "开发环境统一配置（JSON 不支持注释，说明见 README §6 与 docs/devlog）。MySQL 为项目专属实例 3316，与宿主机 3308 服务隔离。",
   "server": {
     "name": "lingxi-dev",
     "machineId": 1
