@@ -54,6 +54,23 @@
 
 ---
 
+## 2026-10-05 M2 消息内核测试轮
+
+- **环境**：DEV 单机三进程 + MySQL:3316 + Redis:6379；联调 `tools/simbot/m2_flow.exe`（复用客户端网络层）。
+- **单元测试**：30/30 通过。
+- **客户端回归**：`lingxi_client.exe --autotest` → CLIENT_AUTO_LOGIN_PASS（含会话列表拉取与增量同步路径）。
+- **可靠性系统验证 m2_flow：M2_FLOW_PASS（全部场景一次通过）**
+  1. A 连发 10 条 → 10 个 ACK，seq 1..10 严格连续（R3/R6 seq 权威与排序）；
+  2. B 在线按序收到 10 条，seq 与 payload 与 ACK 完全一致（R1 先落库后投递）；
+  3. B 断线 → A 再发 5 条 → 全部落库（seq 11..15）；
+  4. B 重连重登 → SyncRequest(lastSeq=10) 恰好补到 5 条且 has_more=false（R4 补拉）；
+  5. 同 clientMsgId 重发 → ACK 复用原 seq（R2 幂等，Redis 快路径 + MySQL 唯一键兜底）。
+- **过程中修复**：ChatServer 构造顺序错误（MessageService 拿到未初始化的 Redis 池 → 空指针崩溃）。
+- **UI 说明**：聊天窗口 v1（会话列表/消息流/发送/未读/发起会话）需要人工体验，
+  自动化覆盖了其依赖的 ConversationService 全部协议路径。
+
+---
+
 ## 2026-10-05 M0 全量测试轮（第一轮归档）
 
 - **环境**：DEV 单机；Windows 11 x64；VS 18（v143 工具集）+ CMake 4.2.3 + Qt 5.12.11(msvc2017_64)

@@ -67,6 +67,71 @@ message MsgBody {
   int64  send_time_ms  = 6;  ///< 发送毫秒时间戳
   bytes  payload       = 7;  ///< JSON 信封（按 msg_type 解释）
   int32  status        = 8;  ///< 0 正常；1 已撤回；2 生成中(AI)；3 被截断
+  int64  to_uid        = 9;  ///< 单聊对端 uid（conv_id 未建时用于定位/建会话）
+  int64  group_id      = 10; ///< 群聊群 ID（=conv_id，单聊为 0）
+  int64  msg_id        = 11; ///< 服务端雪花 ID（撤回/引用寻址）
+}
+
+/**
+ * @brief 会话列表项。
+ */
+message ConversationInfo {
+  int64  conv_id       = 1;  ///< 会话 ID
+  int32  type          = 2;  ///< 1 单聊 2 群聊 3 AI单聊 4 剧情群
+  int64  peer_uid      = 3;  ///< 单聊对端 uid（群聊为 0）
+  string peer_nickname = 4;  ///< 对端昵称/群名
+  int64  last_seq      = 5;  ///< 会话最新 seq
+  int64  last_read_seq = 6;  ///< 我的已读游标（unread = last_seq - last_read_seq）
+  int64  last_msg_time_ms = 7; ///< 最近消息时间
+  string last_preview  = 8;  ///< 最近消息预览（服务端截取）
+}
+
+/**
+ * @brief 会话列表请求（methodId 0x030A）。
+ */
+message ConversationListRequest {
+  // M2 无参数；预留分页字段
+}
+
+/**
+ * @brief 会话列表响应。
+ */
+message ConversationListResponse {
+  repeated ConversationInfo conversations = 1;
+}
+
+/**
+ * @brief 已读上报（0x0304）。
+ */
+message MessageReadAck {
+  int64 conv_id      = 1;  ///< 会话 ID
+  int64 last_read_seq = 2; ///< 已读到的 seq
+}
+
+/**
+ * @brief 对端已读通知（0x0305）。
+ */
+message MessageReadNotice {
+  int64 conv_id       = 1;
+  int64 peer_uid      = 2;  ///< 已读方
+  int64 last_read_seq = 3;
+}
+
+/**
+ * @brief 撤回请求（0x0306）：仅发送者本人、2 分钟内（docs/02 §4）。
+ */
+message MessageRecallRequest {
+  int64 conv_id = 1;
+  int64 msg_id  = 2;  ///< 目标消息雪花 ID
+}
+
+/**
+ * @brief 撤回通知（0x0307，广播给会话成员）。
+ */
+message MessageRecallNotice {
+  int64 conv_id     = 1;
+  int64 msg_id      = 2;
+  int64 operator_uid = 3;
 }
 
 /**

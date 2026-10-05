@@ -69,6 +69,11 @@ private:
     void handleHeartbeat();
     void handleLogin(const net::DecodedPacket& packet);
     void handleLogout();
+
+    /**
+     * @brief 业务帧处理（0x03xx，线程池中执行；阻塞 DB/RPC 不占用 IO 线程）。
+     */
+    void handleBusinessFrame(uint16_t msgId, const net::DecodedPacket& packet);
     void onLoginSuccess(int64_t uid);
     void enqueueWrite(std::string data);
     void doWrite();

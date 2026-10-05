@@ -10,6 +10,7 @@
     "protobuf",
     "hiredis",
     "gtest",
-    "openssl"
+    "openssl",
+    "sqlite3"
   ]
 }

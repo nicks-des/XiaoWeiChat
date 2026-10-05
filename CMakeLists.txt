@@ -42,6 +42,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(hiredis CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)  # SHA256/HMAC（docs/02 §6）
+find_package(unofficial-sqlite3 CONFIG REQUIRED)  # 客户端本地缓存（ADR-009）
 
 # Qt 为可选依赖：未找到时跳过所有 Qt 目标（M0 仅影响 qt_hello 演示）
 find_package(Qt5 QUIET COMPONENTS Core Gui Widgets PATHS ${LINGXI_QT_DIR} NO_DEFAULT_PATH)
@@ -61,6 +62,7 @@ add_subdirectory(server/statusserver)
 add_subdirectory(server/chatserver)
 add_subdirectory(client)          # Qt5 客户端（Qt5 未找到时自动跳过）
 add_subdirectory(tools/demos)     # 工具演示（qt_hello 编译链验证）
+add_subdirectory(tools/simbot)    # 协议机器人（压测/可靠性验证）
 add_subdirectory(tools/system_test)  # 系统级联调程序（m1_flow）
 
 if(LINGXI_BUILD_TESTS)

@@ -20,7 +20,9 @@ using asio::ip::tcp;             ///< TCP 类型简写
 #include <string>
 
 #include "lingxi/base/NonCopyable.h"
+#include "lingxi/base/SnowflakeIdGenerator.h"
 #include "lingxi/base/ThreadPool.h"
+#include "lingxi/db/MySqlPool.h"
 #include "lingxi/db/RedisPool.h"
 #include "lingxi/rpc/RpcClient.h"
 #include "lingxi/rpc/RpcServer.h"
@@ -28,6 +30,7 @@ using asio::ip::tcp;             ///< TCP 类型简写
 namespace lingxi {
 
 class ChatSession;
+class MessageService;
 
 /**
  * @brief ChatServer 核心服务。
@@ -38,6 +41,11 @@ public:
      * @brief 构造：读取配置（config/chatserver 段）并初始化各组件。
      */
     ChatServer(asio::io_context& ioContext, ThreadPool& handlerPool);
+
+    /**
+     * @brief 析构（在 cpp 定义：unique_ptr<MessageService> 需完整类型）。
+     */
+    ~ChatServer();
 
     /**
      * @brief 启动：RPC 注册 + 客户端接受循环 + 心跳定时器。
@@ -68,7 +76,20 @@ public:
     rpc::RpcClientPool* statusRpc() { return m_statusRpc.get(); }
 
     /**
-     * @brief 处理器线程池（登录等阻塞操作移出 IO 线程）。
+     * @brief 消息内核（ChatSession 业务帧处理用）。
+     */
+    MessageService* messageService() { return m_messageService.get(); }
+
+    /**
+     * @brief 投递路由：本机在线直推；跨节点经 Redis 路由 + RPC PushToUid；离线跳过（靠补拉）。
+     * @param uid   目标用户
+     * @param msgId IM 帧 msgId
+     * @param body  protobuf body
+     */
+    void deliverToUid(int64_t uid, uint16_t msgId, const std::string& body);
+
+    /**
+     * @brief 处理器线程池（登录/业务帧等阻塞操作移出 IO 线程）。
      */
     ThreadPool& handlerPool() { return m_handlerPool; }
 
@@ -124,6 +145,12 @@ private:
     int32_t m_serverId = 1;                            ///< 实例编号
     std::string m_clientHost;                          ///< 对外地址
     unsigned short m_clientPort = 8888;                ///< 对外端口
+    int m_machineId = 31;                              ///< 雪花机器号（消息内核专用）
+    std::unique_ptr<db::MySqlConnectionPool> m_dbPool;      ///< MySQL 池（消息权威存储）
+    std::unique_ptr<SnowflakeIdGenerator> m_idGen;          ///< msg_id 生成器
+    std::unique_ptr<MessageService> m_messageService;       ///< 消息内核
+    std::mutex m_peerRpcMutex;                              ///< 跨节点 RPC 客户端表锁
+    std::map<int32_t, std::unique_ptr<rpc::RpcClientPool>> m_peerRpc;  ///< serverId → 客户端池
 
     std::mutex m_sessionsMutex;                                        ///< 会话表锁
     std::map<int64_t, std::shared_ptr<ChatSession>> m_uidToSession;    ///< uid → 会话

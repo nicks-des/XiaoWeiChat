@@ -6,5 +6,6 @@ add_executable(chatserver
     main.cpp
     ChatServer.cpp
     ChatSession.cpp
+    MessageService.cpp
 )
 target_link_libraries(chatserver PRIVATE lingxi_common lingxi_proto OpenSSL::SSL OpenSSL::Crypto)

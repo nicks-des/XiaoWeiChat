@@ -7,6 +7,8 @@ add_executable(lingxi_client
     net/TcpClient.cpp
     net/HttpManager.cpp
     service/AccountService.cpp
+    service/ConversationService.cpp
+    data/LocalStore.cpp
     ui/LoginWindow.cpp
     ui/MainPanel.cpp
 )
@@ -14,6 +16,7 @@ target_include_directories(lingxi_client PRIVATE ${CMAKE_SOURCE_DIR})  # 以 "cl
 target_link_libraries(lingxi_client
     PRIVATE lingxi_common
             lingxi_proto
+            unofficial::sqlite3::sqlite3
             Qt5::Core
             Qt5::Gui
             Qt5::Widgets

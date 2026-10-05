@@ -13,6 +13,7 @@
 #include "lingxi/net/Packet.h"
 
 #include "client/net/HttpManager.h"
+#include "client/service/ConversationService.h"
 
 #include "lingxi.pb.h"
 
@@ -129,6 +130,11 @@ void AccountService::login(const std::string& username, const std::string& passw
             return;
         }
 
+        // 登录成功：按 uid 打开本地缓存库（M2）
+        emitOnUi([this, uid = m_uid] {
+            ConversationService::instance().setup(m_tcp.get(), std::to_string(uid));
+        });
+
         // ---- TCP 长连接登录（IO 线程回调 → 切 UI 线程） ----
         m_tcpLoginDone = false;
         m_token = token;
@@ -161,6 +167,10 @@ void AccountService::onPacket(uint16_t msgId, const std::string& body) {
             m_tcpLoginDone = true;
             emit tcpLoginFinished(code, QString::fromStdString(msg));
         });
+        return;
+    }
+    if (msgId >= 0x0300 && msgId <= 0x030F) {
+        ConversationService::instance().onPacket(msgId, body);  // M2 业务帧转发
         return;
     }
     if (msgId == kMsgIdKick) {

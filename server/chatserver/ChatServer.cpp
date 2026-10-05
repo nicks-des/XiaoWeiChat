@@ -5,6 +5,7 @@
 #include "ChatServer.h"
 
 #include "ChatSession.h"
+#include "MessageService.h"
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/config/Config.h"
 #include "lingxi/logging/Logger.h"
@@ -45,7 +46,22 @@ ChatServer::ChatServer(asio::io_context& ioContext, ThreadPool& handlerPool)
         options.poolSize = config.get<int>("redis.poolSize", 8);
         return options;
     }());
+
+    // M2 消息内核：MySQL 池 + 雪花 + MessageService（须在 m_redis 之后构造）
+    m_machineId = config.get<int>("chatserver.machineId", 31);
+    db::MySqlOptions dbOptions;
+    dbOptions.host = config.get<std::string>("mysql.host", "127.0.0.1");
+    dbOptions.port = config.get<int>("mysql.port", 3316);
+    dbOptions.user = config.get<std::string>("mysql.user", "root");
+    dbOptions.password = config.get<std::string>("mysql.password", "");
+    dbOptions.database = config.get<std::string>("mysql.database", "lingxi");
+    m_dbPool = std::make_unique<db::MySqlConnectionPool>(dbOptions);
+    m_idGen = std::make_unique<SnowflakeIdGenerator>(m_machineId);
+    m_messageService =
+        std::make_unique<MessageService>(m_dbPool.get(), m_redis.get(), m_idGen.get());
 }
+
+ChatServer::~ChatServer() = default;
 
 void ChatServer::start() {
     // RPC：跨节点推送
@@ -83,6 +99,13 @@ void ChatServer::start() {
     }
     startHeartbeatTimer();
     doAccept();
+    // 注册本节点 RPC 地址（跨节点投递寻址用）
+    if (auto redis = m_redis->acquire()) {
+        redis->exec("SET %s %s EX 300", ("chatserver:rpc:" + std::to_string(m_serverId)).c_str(),
+                    (m_clientHost + ":" +
+                     std::to_string(Config::instance().get<int>("chatserver.rpcPort", 9001)))
+                        .c_str());
+    }
 }
 
 void ChatServer::doAccept() {
@@ -198,6 +221,64 @@ void ChatServer::unbindSession(int64_t uid, ChatSession* session) {
 
 int ChatServer::currentLoad() const {
     return m_load.load();
+}
+
+void ChatServer::deliverToUid(int64_t uid, uint16_t msgId, const std::string& body) {
+    {
+        std::lock_guard<std::mutex> lock(m_sessionsMutex);
+        auto it = m_uidToSession.find(uid);
+        if (it != m_uidToSession.end()) {
+            it->second->sendFrame(msgId, body);
+            return;
+        }
+    }
+    // 本机不在线：查 Redis 路由（离线则跳过，靠同步补拉兜底，docs/02 R4）
+    std::string route;
+    if (auto redis = m_redis->acquire()) {
+        auto reply = redis->exec("GET %s", ("route:uid:" + std::to_string(uid)).c_str());
+        if (reply.ok()) {
+            route = reply.str();
+        }
+    }
+    if (route.empty() || route == std::to_string(m_serverId)) {
+        return;  // 离线
+    }
+    // 跨节点：懒建 RPC 客户端并推送
+    const int32_t peerServerId = std::stoi(route);
+    rpc::RpcClientPool* peer = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(m_peerRpcMutex);
+        auto it = m_peerRpc.find(peerServerId);
+        if (it == m_peerRpc.end()) {
+            std::string addr;
+            if (auto redis = m_redis->acquire()) {
+                auto reply = redis->exec("GET %s",
+                                         ("chatserver:rpc:" + std::to_string(peerServerId)).c_str());
+                if (reply.ok()) {
+                    addr = reply.str();
+                }
+            }
+            const auto colon = addr.find(':');
+            if (colon == std::string::npos) {
+                return;
+            }
+            auto pool = std::make_unique<rpc::RpcClientPool>(
+                addr.substr(0, colon),
+                static_cast<unsigned short>(std::stoi(addr.substr(colon + 1))), 1);
+            peer = m_peerRpc.emplace(peerServerId, std::move(pool)).first->second.get();
+        } else {
+            peer = it->second.get();
+        }
+    }
+    PushToUidRequest request;
+    request.set_target_uid(uid);
+    request.set_msg_id(msgId);
+    request.set_msg_body(body);
+    try {
+        peer->call(rpc::kServiceChat, 0x01, request.SerializeAsString());
+    } catch (const rpc::RpcError& e) {
+        LX_LOG_WARN("cross-node push failed: uid={} err={}", uid, e.what());
+    }
 }
 
 void ChatServer::writeRoute(int64_t uid) {

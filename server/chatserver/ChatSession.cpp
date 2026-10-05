@@ -5,6 +5,7 @@
 #include "ChatSession.h"
 
 #include "ChatServer.h"
+#include "MessageService.h"
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/logging/Logger.h"
 #include "lingxi/rpc/RpcFrame.h"
@@ -96,9 +97,71 @@ void ChatSession::dispatchFrame(const net::DecodedPacket& packet) {
         case 0x0103:
             handleLogout();
             break;
+        case 0x0301:  // 消息发送
+        case 0x0304:  // 已读上报
+        case 0x0306:  // 撤回
+        case 0x0308:  // 漫游同步
+        case 0x030A:  // 会话列表
+            if (!isBound()) {
+                LX_LOG_WARN("session {} business frame before login, msgId={:#06x}",
+                            m_sessionId, packet.header.msgId);
+                return;
+            }
+            {
+                auto self = shared_from_this();
+                const auto captured = packet;
+                const uint16_t msgId = packet.header.msgId;
+                m_server.handlerPool().submit(
+                    [this, self, captured, msgId] { handleBusinessFrame(msgId, captured); });
+            }
+            break;
         default:
-            LX_LOG_WARN("session {} got unexpected msgId={:#06x} (M1 骨架仅支持心跳/登录/登出)",
-                        m_sessionId, packet.header.msgId);
+            LX_LOG_WARN("session {} got unexpected msgId={:#06x}", m_sessionId,
+                        packet.header.msgId);
+            break;
+    }
+}
+
+void ChatSession::handleBusinessFrame(uint16_t msgId, const net::DecodedPacket& packet) {
+    auto& service = *m_server.messageService();
+    const int64_t uid = m_uid.load();
+    switch (msgId) {
+        case 0x0301: {
+            // 发送管线：先落库（工作线程），ACK 回发送者，投递路由到接收者
+            auto outcome = service.handleSend(uid, packet.body);
+            if (outcome.errCode == 0) {
+                sendFrame(0x0302, outcome.ackBody);
+            } else {
+                MessageAck errAck;
+                errAck.set_err_code(outcome.errCode);
+                errAck.set_err_msg(outcome.errMsg);
+                errAck.set_client_msg_id("");
+                sendFrame(0x0302, errAck.SerializeAsString());
+            }
+            for (const auto& delivery : outcome.deliveries) {
+                m_server.deliverToUid(delivery.uid, delivery.msgId, delivery.body);
+            }
+            break;
+        }
+        case 0x030A:
+            sendFrame(0x030A, service.handleConversationList(uid));
+            break;
+        case 0x0308:
+            sendFrame(0x0309, service.handleSync(uid, packet.body));
+            break;
+        case 0x0304: {
+            for (const auto& delivery : service.handleReadAck(uid, packet.body)) {
+                m_server.deliverToUid(delivery.uid, delivery.msgId, delivery.body);
+            }
+            break;
+        }
+        case 0x0306: {
+            for (const auto& delivery : service.handleRecall(uid, packet.body)) {
+                m_server.deliverToUid(delivery.uid, delivery.msgId, delivery.body);
+            }
+            break;
+        }
+        default:
             break;
     }
 }
