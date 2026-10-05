@@ -81,12 +81,18 @@
   SQLite 是桌面端 IM 标配（微信/QQ 同思路）。
 - **影响**：seq 的 Redis 与 MySQL 一致性策略见 03 文档 §3.4。
 
-## ADR-010 MySQL 访问层：Connector C++ 8.3 + 自研连接池
+## ADR-010 MySQL 访问层：libmysqlclient C API + 自研连接池（修订）
 
-- **备选**：原生 libmysqlclient C API。
-- **结论**：使用本机已有的 mysql-connector-c++ 8.3.0（带 CMake config，接入顺畅），
-  之上自研连接池（延迟初始化、健康检查、获取超时）。
-- **理由**：C++ API 更安全（RAII、预编译语句防注入），且本机已就绪。
+- **背景**：原决策（v1.0）为使用本机已有的 mysql-connector-c++ 8.3.0。
+  M0 实施时发现（2026-10-05）：该发行版 `lib64/vs14/` **缺失 release 导入库**（仅 debug 可用），
+  无法用于正常构建。
+- **备选**：原生 libmysqlclient C API（MySQL Server 自带 `include/ + lib/libmysql.lib`，本机齐备）。
+- **结论**：采用 libmysqlclient C API，之上自研 `MySqlConnection`（RAII）+ 连接池；
+  头文件以 PRIVATE 方式仅由 `db/MySqlPool.cpp` 触碰，业务代码面向自研封装，后端可替换。
+- **理由**：C API 是最稳定路径（单 DLL 运行时依赖）；自研 RAII 封装保留面试讲解价值
+  （连接生命周期、异常安全、池借还语义）；ADR 原有备选预案生效，架构无损。
+- **影响**：运行时需将 libmysql.dll 部署到可执行目录（CMake POST_BUILD 自动复制）；
+  连接健康检查用 `mysql_ping`（自动重连关闭，由池层管理）。
 
 ## ADR-011 AI 角色建模：复用用户体系，user_type 区分 ⭐
 
