@@ -43,6 +43,17 @@
 
 ---
 
+## 2026-10-05 客户端自动验收轮（M1 补充 T10-07/08）
+
+- **对象**：`lingxi_client.exe --autotest`（Qt Widgets 无人值守模式：自动生成账号 → 注册 →
+  登录 → TCP 长连接校验 → 主面板展示）。
+- **结果**：**CLIENT_AUTO_LOGIN_PASS**（exit 0）；对运行中三服务完成真实注册(uid 落库)、
+  HTTP 登录(token+分配)、TCP LoginRequest/LoginResponse、主面板切换。
+- **回归**：单元测试 30/30 通过。
+- **过程中修复**：连接建立后未发送 LoginRequest（流程断链）——连接成功回调内补发登录帧。
+
+---
+
 ## 2026-10-05 M0 全量测试轮（第一轮归档）
 
 - **环境**：DEV 单机；Windows 11 x64；VS 18（v143 工具集）+ CMake 4.2.3 + Qt 5.12.11(msvc2017_64)
