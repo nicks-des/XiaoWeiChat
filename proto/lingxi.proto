@@ -1,0 +1,189 @@
+/**
+ * @file lingxi.proto
+ * @brief 灵犀 IM 通信协议 v0（M0 定稿基线，随里程碑演进，规则见 docs/02 §7）。
+ *
+ * 编号规范：字段只增不改不删；消息 ID 分配表见 docs/02-通信协议设计.md §2。
+ */
+syntax = "proto3";
+package lingxi;
+
+/* ========== 登录鉴权（msgId 0x01xx） ========== */
+
+/**
+ * @brief 登录请求：token 由 GateServer 登录接口下发。
+ */
+message LoginRequest {
+  int64  uid            = 1;  ///< 用户 ID
+  string token          = 2;  ///< 访问令牌（HMAC，docs/02 §6）
+  string device_id      = 3;  ///< 设备标识（顶号判定依据）
+  string client_version = 4;  ///< 客户端版本号
+}
+
+/**
+ * @brief 登录响应。
+ */
+message LoginResponse {
+  int32  err_code    = 1;  ///< 0 成功；401 token 失效；403 顶号踢出
+  string err_msg     = 2;  ///< 错误描述
+  int64  server_time = 3;  ///< 服务器毫秒时间戳（客户端校时）
+}
+
+/**
+ * @brief 顶号通知：同账号他处登录，强制下线。
+ */
+message KickNotice {
+  string device_id  = 1;  ///< 新登录设备标识
+  string login_ip   = 2;  ///< 新登录 IP
+  int64  login_time = 3;  ///< 新登录时间戳（毫秒）
+}
+
+/* ========== 消息收发（msgId 0x03xx，单聊/群聊/AI 通用） ========== */
+
+/**
+ * @brief 消息类型枚举（与 JSON 信封结构一一对应，docs/02 §3.2）。
+ */
+enum MsgType {
+  MSG_NONE      = 0;  ///< 占位（proto3 首枚举必须为 0）
+  MSG_TEXT      = 1;  ///< 文本
+  MSG_IMAGE     = 2;  ///< 图片
+  MSG_VOICE     = 3;  ///< 语音
+  MSG_VIDEO     = 4;  ///< 视频
+  MSG_FILE      = 5;  ///< 文件（word/pdf/md 等）
+  MSG_SYSTEM    = 6;  ///< 系统消息
+  MSG_NARRATION = 7;  ///< 剧情旁白（酒馆，from_uid=0）
+  MSG_CARD      = 8;  ///< 角色卡名片（酒馆）
+  MSG_OOC       = 9;  ///< 玩家 OOC 发言（酒馆剧情群）
+}
+
+/**
+ * @brief 通用消息体。
+ */
+message MsgBody {
+  int64  conv_id       = 1;  ///< 会话 ID（服务端分配的雪花 ID）
+  int64  from_uid      = 2;  ///< 发送者 uid（旁白=0）
+  int64  conv_seq      = 3;  ///< 服务端分配的会话内单调递增序号（客户端发送时=0）
+  string client_msg_id = 4;  ///< 客户端幂等 ID（UUID）
+  int32  msg_type      = 5;  ///< MsgType 枚举值
+  int64  send_time_ms  = 6;  ///< 发送毫秒时间戳
+  bytes  payload       = 7;  ///< JSON 信封（按 msg_type 解释）
+  int32  status        = 8;  ///< 0 正常；1 已撤回；2 生成中(AI)；3 被截断
+}
+
+/**
+ * @brief 消息发送请求。
+ */
+message MessageSendRequest {
+  MsgBody body = 1;  ///< 消息体
+}
+
+/**
+ * @brief 消息发送确认：服务端落库成功后回执。
+ */
+message MessageAck {
+  int32  err_code     = 1;  ///< 0 成功；非 0 见 err_msg
+  string err_msg      = 2;  ///< 错误描述
+  int64  conv_id      = 3;  ///< 会话 ID
+  string client_msg_id = 4; ///< 与请求对应的幂等 ID
+  int64  conv_seq     = 5;  ///< 服务端分配的会话序号
+  int64  send_time_ms = 6;  ///< 服务器接收时间戳
+}
+
+/**
+ * @brief 新消息推送。
+ */
+message MessageNotify {
+  MsgBody body = 1;  ///< 完整消息体
+}
+
+/**
+ * @brief 会话已读游标。
+ */
+message ConvCursor {
+  int64 conv_id  = 1;  ///< 会话 ID
+  int64 last_seq = 2;  ///< 本地已连续收到的最大 seq
+}
+
+/**
+ * @brief 漫游同步请求：客户端上报各会话本地最大连续 seq。
+ */
+message SyncRequest {
+  repeated ConvCursor cursors = 1;  ///< 每个活跃会话一条
+}
+
+/**
+ * @brief 漫游同步响应（分页）。
+ */
+message SyncResponse {
+  repeated MsgBody messages = 1;  ///< 差量消息批
+  bool  has_more            = 2;  ///< 是否还有更多
+  int64 next_cursor         = 3;  ///< 下一页服务端游标
+}
+
+/* ========== 音视频通话信令（msgId 0x06xx，docs/05） ========== */
+
+/**
+ * @brief 通话邀请（主叫携带预协商 SDP Offer）。
+ */
+message CallInviteRequest {
+  string call_id    = 1;  ///< 通话唯一 ID（主叫生成 UUID）
+  int64  callee_uid = 2;  ///< 被叫 uid
+  int32  media_type = 3;  ///< 1 音频 2 视频
+  string offer_sdp  = 4;  ///< SDP Offer
+}
+
+/**
+ * @brief 通话接听（被叫回 SDP Answer）。
+ */
+message CallAcceptRequest {
+  string call_id   = 1;   ///< 通话唯一 ID
+  string answer_sdp = 2;  ///< SDP Answer
+}
+
+/**
+ * @brief ICE 候选中转（双方经 ChatServer 交换）。
+ */
+message CallIceCandidate {
+  string call_id     = 1;  ///< 通话唯一 ID
+  string candidate   = 2;  ///< ICE candidate 文本
+  string mid         = 3;  ///< 媒体行标识
+}
+
+/* ========== 酒馆流式与重掷（msgId 0x07xx，docs/04） ========== */
+
+/**
+ * @brief AI 流式分片。
+ */
+message AiStreamChunkNotice {
+  int64  conv_id    = 1;  ///< 会话 ID
+  int64  target_seq = 2;  ///< 本条 AI 消息预占的会话 seq（生成完成前 status=2）
+  string delta_text = 3;  ///< 增量文本
+}
+
+/**
+ * @brief AI 流式结束：最终全文权威重写（docs/02 R7）。
+ */
+message AiStreamEndNotice {
+  int64  conv_id        = 1;  ///< 会话 ID
+  int64  target_seq     = 2;  ///< 目标消息 seq
+  string final_text     = 3;  ///< 最终全文（分片可能乱序/丢失，以本字段为准）
+  int32  finish_reason  = 4;  ///< 0 stop 1 length 2 error-truncated
+  int32  affinity_delta = 5;  ///< 好感度增量（docs/04 §8）
+}
+
+/**
+ * @brief AI 生成失败通知。
+ */
+message AiStreamErrorNotice {
+  int64  conv_id    = 1;  ///< 会话 ID
+  int64  target_seq = 2;  ///< 目标消息 seq
+  string err_msg    = 3;  ///< 用户可读的兜底文案
+}
+
+/**
+ * @brief Swipe 重掷请求（docs/04 §10）。
+ */
+message AiSwipeRequest {
+  int64 conv_id = 1;  ///< 会话 ID
+  int64 conv_seq = 2; ///< 目标 AI 消息 seq
+  int32 action  = 3;  ///< 0 重新生成 1 下一版本 2 上一版本
+}

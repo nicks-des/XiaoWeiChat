@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "lingxi",
+  "version": "0.1.0",
+  "description": "灵犀 IM：Qt5+C++ 分布式即时通讯系统（含酒馆 AI 角色扮演玩法）",
+  "builtin-baseline": "19780d9cdf84d0944cf9a318666703b89ab6629c",
+  "dependencies": [
+    "spdlog",
+    "nlohmann-json",
+    "protobuf",
+    "hiredis",
+    "gtest"
+  ]
+}

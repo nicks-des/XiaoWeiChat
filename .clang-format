@@ -1,0 +1,15 @@
+# 灵犀 IM C++ 代码风格：基于 Google 风格，缩进调整为 4 空格
+# 命名规则见 docs/01-系统架构设计.md §9：类/文件大驼峰，函数/变量小驼峰
+BasedOnStyle: Google
+Standard: c++17
+IndentWidth: 4
+ColumnLimit: 110
+AccessModifierOffset: -4
+DerivePointerAlignment: false
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortIfStatementsOnASingleLine: Never
+SpaceAfterCStyleCast: true
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+FixNamespaceComments: true

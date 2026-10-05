@@ -1,0 +1,34 @@
+/**
+ * @file dev.json
+ * @brief 开发环境统一配置（入库基线；敏感覆盖走 *.local.json，不入 git）。
+ *
+ * MySQL 使用项目专属开发实例（127.0.0.1:3316，初始化 root 空密码），
+ * 与本机既有 MySQL 服务（3308）互不干扰；详见 docs/devlog 与 tools/scripts。
+ */
+{
+  "server": {
+    "name": "lingxi-dev",
+    "machineId": 1
+  },
+  "log": {
+    "level": "debug",
+    "dir": "logs"
+  },
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3316,
+    "user": "root",
+    "password": "",
+    "database": "lingxi",
+    "poolSize": 8,
+    "connectTimeoutSec": 5
+  },
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "password": "",
+    "poolSize": 8,
+    "connectTimeoutMs": 2000,
+    "commandTimeoutMs": 3000
+  }
+}
