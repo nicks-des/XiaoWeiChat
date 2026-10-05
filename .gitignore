@@ -21,3 +21,8 @@ logs/
 # ===== 系统 =====
 Thumbs.db
 .DS_Store
+
+# ===== 与本项目无关的本机文件 =====
+go.zip
+.workbuddy/
+aqtinstall.log
