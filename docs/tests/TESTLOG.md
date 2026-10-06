@@ -54,6 +54,31 @@
 
 ---
 
+## 2026-10-06 M3 好友与群组测试轮
+
+- **单元测试**：30/30 通过；**客户端自动验收**：CLIENT_AUTO_LOGIN_PASS（连跑 4 次稳定）；
+  **M2 回归**：m2_flow PASS。
+- **M3 全流程系统验证 m3_flow：M3_FLOW_PASS（9 场景一次通过）**
+  1. 用户名前缀搜索到目标（未加好友状态正确）；
+  2. A 申请 → B 收 0x0203 通知（含 apply_id/昵称/验证消息）→ B 同意 → A 收 0x0205 结果（附对方资料）；
+  3. 双方好友列表互见；
+  4. A 建群拉 B → B 收 0x0403 入群通知（全量成员 2 人）；
+  5. 群消息写扩散：A 发 B 收、B 发 A 收，from_uid 归属正确；
+  6. B 退群 → A 收 0x0408(action=1)；**退群后群消息不再投给 B**（轮询 1s 确认零投递）；
+  7. A（群主）解散 → 0x0408(action=3) 广播；
+  8. 删除好友 → 双向列表均不再包含对方。
+- **过程中发现并修复（已回归）**：
+  1. **连接池半开连接（隔夜必现）**：机器休眠后池内 MySQL 连接全部死亡，acquire 直出导致
+     [2013] Lost connection → 修复：取出时 ping 健康检查，坏连接丢弃重建；
+  2. **客户端 SocialService 未初始化**：requestFriendList 空指针段错误（偶发）→
+     AccountService::setup 时注入 TcpClient；
+  3. protoc 生成访问器命名与手写不符两处（驼峰字段 isFriend→isfriend、保留字 friend→friend_）→
+     proto 字段统一改标准 snake_case；代码里 mutable_friend_()。
+- **说明**：服务重启后首轮 m2_flow 出现一次瞬时网络失败，重跑即过（无复现，判定为
+  服务暖机抖动，不记缺陷单）。
+
+---
+
 ## 2026-10-05 M2 消息内核测试轮
 
 - **环境**：DEV 单机三进程 + MySQL:3316 + Redis:6379；联调 `tools/simbot/m2_flow.exe`（复用客户端网络层）。

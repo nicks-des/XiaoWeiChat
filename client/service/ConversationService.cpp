@@ -78,6 +78,31 @@ std::string ConversationService::sendText(int64_t toUid, const std::string& text
     return clientMsgId;
 }
 
+std::string ConversationService::sendTextToConv(int64_t convId, const std::string& text) {
+    const std::string clientMsgId = Uuid::generate();
+    const std::string payload = nlohmann::json({{"text", text}}).dump();
+
+    LocalStore::MsgRow row;
+    row.convId = convId;
+    row.clientMsgId = clientMsgId;
+    row.msgType = MSG_TEXT;
+    row.status = -1;
+    row.payload = payload;
+    row.sendTimeMs = TimeUtil::nowMs();
+    m_store.insertMessage(row);
+
+    MessageSendRequest request;
+    auto* body = request.mutable_body();
+    body->set_conv_id(convId);
+    body->set_group_id(convId);  // 群消息定位
+    body->set_client_msg_id(clientMsgId);
+    body->set_msg_type(MSG_TEXT);
+    body->set_send_time_ms(row.sendTimeMs);
+    body->set_payload(payload);
+    m_tcp->send(0x0301, request.SerializeAsString());
+    return clientMsgId;
+}
+
 void ConversationService::markRead(int64_t convId) {
     const int64_t lastSeq = m_store.maxSeq(convId);
     if (lastSeq <= 0) {

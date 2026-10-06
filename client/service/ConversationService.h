@@ -49,6 +49,14 @@ public:
     std::string sendText(int64_t toUid, const std::string& text);
 
     /**
+     * @brief 按已有会话发送文本（群聊/已建会话的单聊）。
+     * @param convId 会话 ID
+     * @param text   文本内容
+     * @return std::string clientMsgId（幂等 ID）
+     */
+    std::string sendTextToConv(int64_t convId, const std::string& text);
+
+    /**
      * @brief 已读上报（0x0304，打开会话时调用）。
      */
     void markRead(int64_t convId);

@@ -359,3 +359,193 @@ message PushToUidResponse {
   int32 err_code = 1;
   bool  online   = 2;  ///< 目标是否在本机在线
 }
+
+/* ========== 好友（msgId 0x02xx，docs/02 §2 分配表） ========== */
+
+/**
+ * @brief 用户公开资料（搜索结果/好友项通用）。
+ */
+message FriendProfile {
+  int64  uid       = 1;  ///< 用户 ID
+  string username  = 2;  ///< 用户名
+  string nickname  = 3;  ///< 昵称
+  string signature = 4;  ///< 个性签名
+  bool   online    = 5;  ///< 是否在线（路由表判定）
+  bool   is_friend = 6;  ///< 是否已是好友
+  string remark    = 7;  ///< 好友备注（列表用）
+  string group_name = 8;  ///< 好友分组（列表用）
+}
+
+/**
+ * @brief 好友搜索（0x0201）：uid 精确 或 用户名前缀匹配。
+ */
+message FriendSearchRequest {
+  string keyword = 1;  ///< 关键字
+}
+
+/**
+ * @brief 好友搜索响应。
+ */
+message FriendSearchResponse {
+  repeated FriendProfile users = 1;
+}
+
+/**
+ * @brief 好友申请（0x0202）。
+ */
+message FriendApplyRequest {
+  int64  to_uid    = 1;  ///< 目标用户
+  string verify_msg = 2; ///< 验证消息
+}
+
+/**
+ * @brief 好友申请通知（0x0203，推给被申请方）。
+ */
+message FriendApplyNotice {
+  int64  apply_id      = 1;  ///< 申请单 ID
+  int64  from_uid      = 2;  ///< 申请人
+  string from_nickname = 3;  ///< 申请人昵称
+  string verify_msg    = 4;  ///< 验证消息
+}
+
+/**
+ * @brief 好友申请处理（0x0204）：同意/拒绝。
+ */
+message FriendApplyHandleRequest {
+  int64 apply_id = 1;  ///< 申请单 ID
+  bool  agree    = 2;  ///< true 同意 / false 拒绝
+}
+
+/**
+ * @brief 申请处理结果通知（0x0205，推给申请方）。
+ */
+message FriendApplyResultNotice {
+  int64         apply_id = 1;  ///< 申请单 ID
+  bool          agree    = 2;  ///< 处理结果
+  FriendProfile friend   = 3;  ///< 同意时附带对方资料（客户端直接入列表）
+}
+
+/**
+ * @brief 删除好友（0x0206，双向删除）。
+ */
+message FriendDeleteRequest {
+  int64 friend_uid = 1;  ///< 要删除的好友
+}
+
+/**
+ * @brief 好友列表（0x0207）。
+ */
+message FriendListRequest {
+  // 全量拉取；预留分页
+}
+
+/**
+ * @brief 好友列表响应。
+ */
+message FriendListResponse {
+  repeated FriendProfile friends = 1;
+  int32 pending_applies = 2;  ///< 待我处理的申请数（红点）
+}
+
+/* ========== 群组（msgId 0x04xx） ========== */
+
+/**
+ * @brief 群成员信息。
+ */
+message GroupMemberInfo {
+  int64  uid      = 1;  ///< 成员 uid
+  string nickname = 2;  ///< 昵称
+  int32  role     = 3;  ///< 0 群主 1 管理员 2 成员
+}
+
+/**
+ * @brief 建群（0x0401）：创建者为群主，初始成员即时入群。
+ */
+message GroupCreateRequest {
+  string name = 1;                 ///< 群名
+  repeated int64 member_uids = 2;  ///< 初始成员（不含创建者）
+}
+
+/**
+ * @brief 建群响应。
+ */
+message GroupCreateResponse {
+  int32 err_code   = 1;
+  string err_msg   = 2;
+  int64  conv_id   = 3;  ///< 群会话 ID
+}
+
+/**
+ * @brief 邀请入群（0x0402，免确认，docs/06 T30-03）。
+ */
+message GroupInviteRequest {
+  int64 conv_id = 1;                 ///< 群会话 ID
+  repeated int64 member_uids = 2;    ///< 被邀请人
+}
+
+/**
+ * @brief 入群/群成员变更通知（0x0403，广播全群）。
+ */
+message GroupJoinNotice {
+  int64 conv_id = 1;   ///< 群会话 ID
+  string name   = 2;   ///< 群名
+  repeated GroupMemberInfo members = 3;  ///< 变更后全量成员
+}
+
+/**
+ * @brief 退群（0x0404）：群主退群需先转让或解散（M3 从简：群主不可退）。
+ */
+message GroupQuitRequest {
+  int64 conv_id = 1;
+}
+
+/**
+ * @brief 踢人（0x0405）：群主/管理员。
+ */
+message GroupKickRequest {
+  int64 conv_id     = 1;
+  int64 target_uid  = 2;
+}
+
+/**
+ * @brief 解散群（0x0406）：仅群主。
+ */
+message GroupDissolveRequest {
+  int64 conv_id = 1;
+}
+
+/**
+ * @brief 群资料（0x0407）。
+ */
+message GroupInfoRequest {
+  int64 conv_id = 1;
+}
+
+/**
+ * @brief 群资料响应。
+ */
+message GroupInfoResponse {
+  int64 conv_id = 1;
+  string name   = 2;
+  string announcement = 3;
+  int64 owner_uid = 4;
+  repeated GroupMemberInfo members = 5;
+}
+
+/**
+ * @brief 通用错误应答（0x0402/0404/0405/0406 的同步回执）。
+ */
+message GenericErr {
+  int32 err_code = 1;
+  string err_msg = 2;
+}
+
+/**
+ * @brief 群变更通知（0x0408：退群/踢人/解散/资料修改广播）。
+ */
+message GroupUpdateNotice {
+  int32 action     = 1;  ///< 1 成员退出 2 成员被踢 3 群解散 4 资料修改
+  int64 conv_id    = 2;
+  int64 target_uid = 3;  ///< 退出/被踢者
+  string name      = 4;  ///< 群名（解散后仍可用于客户端清理）
+}

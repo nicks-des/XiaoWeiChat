@@ -6,6 +6,7 @@
 
 #include "ChatServer.h"
 #include "MessageService.h"
+#include "SocialService.h"
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/logging/Logger.h"
 #include "lingxi/rpc/RpcFrame.h"
@@ -97,6 +98,17 @@ void ChatSession::dispatchFrame(const net::DecodedPacket& packet) {
         case 0x0103:
             handleLogout();
             break;
+        case 0x0201:  // 好友搜索
+        case 0x0202:  // 好友申请
+        case 0x0204:  // 申请处理
+        case 0x0206:  // 删除好友
+        case 0x0207:  // 好友列表
+        case 0x0401:  // 建群
+        case 0x0402:  // 邀请入群
+        case 0x0404:  // 退群
+        case 0x0405:  // 踢人
+        case 0x0406:  // 解散
+        case 0x0407:  // 群资料
         case 0x0301:  // 消息发送
         case 0x0304:  // 已读上报
         case 0x0306:  // 撤回
@@ -124,7 +136,89 @@ void ChatSession::dispatchFrame(const net::DecodedPacket& packet) {
 
 void ChatSession::handleBusinessFrame(uint16_t msgId, const net::DecodedPacket& packet) {
     auto& service = *m_server.messageService();
+    auto& social = *m_server.socialService();
     const int64_t uid = m_uid.load();
+
+    // ---- 社交帧（好友 0x02xx / 群组 0x04xx）----
+    switch (msgId) {
+        case 0x0201:
+            sendFrame(0x0201, social.handleSearch(uid, packet.body));
+            return;
+        case 0x0202: {
+            auto [rsp, deliveries] = social.handleApply(uid, packet.body);
+            sendFrame(0x0202, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0204: {
+            auto [rsp, deliveries] = social.handleApplyHandle(uid, packet.body);
+            sendFrame(0x0204, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0206: {
+            auto [rsp, deliveries] = social.handleFriendDelete(uid, packet.body);
+            sendFrame(0x0206, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0207:
+            sendFrame(0x0207, social.handleFriendList(uid));
+            return;
+        case 0x0401: {
+            auto [rsp, deliveries] = social.handleGroupCreate(uid, packet.body);
+            sendFrame(0x0401, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0402: {
+            auto [rsp, deliveries] = social.handleGroupInvite(uid, packet.body);
+            sendFrame(0x0402, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0404: {
+            auto [rsp, deliveries] = social.handleGroupQuit(uid, packet.body);
+            sendFrame(0x0404, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0405: {
+            auto [rsp, deliveries] = social.handleGroupKick(uid, packet.body);
+            sendFrame(0x0405, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0406: {
+            auto [rsp, deliveries] = social.handleGroupDissolve(uid, packet.body);
+            sendFrame(0x0406, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0407:
+            sendFrame(0x0407, social.handleGroupInfo(uid, packet.body));
+            return;
+        default:
+            break;
+    }
+
+    // ---- 消息帧（0x03xx）----
     switch (msgId) {
         case 0x0301: {
             // 发送管线：先落库（工作线程），ACK 回发送者，投递路由到接收者

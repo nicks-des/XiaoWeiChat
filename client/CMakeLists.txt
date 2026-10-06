@@ -8,6 +8,7 @@ add_executable(lingxi_client
     net/HttpManager.cpp
     service/AccountService.cpp
     service/ConversationService.cpp
+    service/SocialService.cpp
     data/LocalStore.cpp
     ui/LoginWindow.cpp
     ui/MainPanel.cpp

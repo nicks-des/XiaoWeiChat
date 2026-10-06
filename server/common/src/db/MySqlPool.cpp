@@ -198,6 +198,16 @@ std::shared_ptr<MySqlConnection> MySqlConnectionPool::acquire(std::chrono::milli
         conn = std::move(m_idle.back());
         m_idle.pop_back();
         ++m_borrowed;
+        // 健康检查：闲置连接可能因网络中断/服务重启变成半开（如隔夜休眠后 [2013]）
+        if (!conn->ping()) {
+            LX_LOG_WARN("MySqlPool discard dead idle connection");
+            conn = createConnection();
+            if (conn == nullptr) {
+                --m_borrowed;
+                m_condition.notify_one();
+                return nullptr;
+            }
+        }
     } else {
         // 预占名额后解锁建连：防止并发建连超发突破池上限
         ++m_borrowed;

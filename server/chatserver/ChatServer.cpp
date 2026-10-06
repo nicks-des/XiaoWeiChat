@@ -6,6 +6,7 @@
 
 #include "ChatSession.h"
 #include "MessageService.h"
+#include "SocialService.h"
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/config/Config.h"
 #include "lingxi/logging/Logger.h"
@@ -59,6 +60,8 @@ ChatServer::ChatServer(asio::io_context& ioContext, ThreadPool& handlerPool)
     m_idGen = std::make_unique<SnowflakeIdGenerator>(m_machineId);
     m_messageService =
         std::make_unique<MessageService>(m_dbPool.get(), m_redis.get(), m_idGen.get());
+    m_socialService =
+        std::make_unique<SocialService>(m_dbPool.get(), m_redis.get(), m_idGen.get());
 }
 
 ChatServer::~ChatServer() = default;
