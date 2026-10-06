@@ -32,6 +32,7 @@ namespace lingxi {
 class ChatSession;
 class MessageService;
 class SocialService;
+class CallService;
 
 /**
  * @brief ChatServer 核心服务。
@@ -85,6 +86,11 @@ public:
      * @brief 社交服务（好友/群组，ChatSession 业务帧处理用）。
      */
     SocialService* socialService() { return m_socialService.get(); }
+
+    /**
+     * @brief 通话信令服务（ChatSession 业务帧处理用）。
+     */
+    CallService* callService() { return m_callService.get(); }
 
     /**
      * @brief 投递路由：本机在线直推；跨节点经 Redis 路由 + RPC PushToUid；离线跳过（靠补拉）。
@@ -156,6 +162,7 @@ private:
     std::unique_ptr<SnowflakeIdGenerator> m_idGen;          ///< msg_id 生成器
     std::unique_ptr<MessageService> m_messageService;       ///< 消息内核
     std::unique_ptr<SocialService> m_socialService;         ///< 社交服务（好友/群组）
+    std::unique_ptr<CallService> m_callService;             ///< 通话信令服务
     std::mutex m_peerRpcMutex;                              ///< 跨节点 RPC 客户端表锁
     std::map<int32_t, std::unique_ptr<rpc::RpcClientPool>> m_peerRpc;  ///< serverId → 客户端池
 

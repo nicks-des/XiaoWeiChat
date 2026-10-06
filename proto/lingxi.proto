@@ -205,6 +205,82 @@ message CallAcceptRequest {
 }
 
 /**
+ * @brief 振铃通知（0x0602，推给被叫，携带主叫预协商 Offer）。
+ */
+message CallRingNotice {
+  string call_id       = 1;  ///< 通话唯一 ID
+  int64  caller_uid    = 2;  ///< 主叫 uid
+  string caller_nickname = 3; ///< 主叫昵称
+  int32  media_type    = 4;  ///< 1 音频 2 视频
+  string offer_sdp     = 5;  ///< SDP Offer
+}
+
+/**
+ * @brief 接听通知（0x0603 推给主叫，携带 Answer）。
+ */
+message CallAcceptNotice {
+  string call_id    = 1;
+  string answer_sdp = 2;  ///< SDP Answer
+}
+
+/**
+ * @brief 拒绝/占线通知（0x0604 推给主叫）。
+ */
+message CallRejectNotice {
+  string call_id  = 1;
+  int32  reason   = 2;  ///< 0 拒绝 1 占线 2 超时未接 3 被叫离线
+  string err_msg  = 3;
+}
+
+/**
+ * @brief 被叫拒绝（0x0604）。
+ */
+message CallRejectRequest {
+  string call_id = 1;
+  int32  reason  = 2;  ///< 0 拒绝 1 占线
+}
+
+/**
+ * @brief SDP 重协商中继（0x0607）。
+ */
+message CallSdpNet {
+  string call_id = 1;
+  string sdp     = 2;
+}
+
+/**
+ * @brief 主叫取消（0x0605，接通前）。
+ */
+message CallCancelRequest {
+  string call_id = 1;
+}
+
+/**
+ * @brief 挂断（0x0606）：携带通话时长（秒），服务端写通话记录。
+ */
+message CallHangupRequest {
+  string call_id   = 1;
+  int32  duration_sec = 2;  ///< 挂断方上报的通话时长
+}
+
+/**
+ * @brief 挂断通知（0x0606 推给对端）。
+ */
+message CallHangupNotice {
+  string call_id      = 1;
+  int32  duration_sec = 2;
+}
+
+/**
+ * @brief 通话状态通知（0x0609，服务端生成：超时/对端离线等）。
+ */
+message CallStateNotice {
+  string call_id = 1;
+  int32  state   = 2;  ///< 2 超时未接 3 对端离线
+  string err_msg = 3;
+}
+
+/**
  * @brief ICE 候选中转（双方经 ChatServer 交换）。
  */
 message CallIceCandidate {

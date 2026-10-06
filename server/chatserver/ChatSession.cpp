@@ -6,6 +6,7 @@
 
 #include "ChatServer.h"
 #include "MessageService.h"
+#include "CallService.h"
 #include "SocialService.h"
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/logging/Logger.h"
@@ -109,6 +110,13 @@ void ChatSession::dispatchFrame(const net::DecodedPacket& packet) {
         case 0x0405:  // 踢人
         case 0x0406:  // 解散
         case 0x0407:  // 群资料
+        case 0x0601:  // 通话邀请
+        case 0x0603:  // 接听
+        case 0x0604:  // 拒绝
+        case 0x0605:  // 取消
+        case 0x0606:  // 挂断
+        case 0x0607:  // SDP 重协商中继
+        case 0x0608:  // ICE 候选中继
         case 0x0301:  // 消息发送
         case 0x0304:  // 已读上报
         case 0x0306:  // 撤回
@@ -137,7 +145,61 @@ void ChatSession::dispatchFrame(const net::DecodedPacket& packet) {
 void ChatSession::handleBusinessFrame(uint16_t msgId, const net::DecodedPacket& packet) {
     auto& service = *m_server.messageService();
     auto& social = *m_server.socialService();
+    auto& call = *m_server.callService();
     const int64_t uid = m_uid.load();
+
+    // ---- 通话信令帧（0x06xx，docs/05 §3）----
+    switch (msgId) {
+        case 0x0601: {
+            auto [rsp, deliveries] = call.handleInvite(uid, packet.body);
+            sendFrame(0x0601, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0603: {
+            auto [rsp, deliveries] = call.handleAccept(uid, packet.body);
+            sendFrame(0x0603, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0604: {
+            auto [rsp, deliveries] = call.handleReject(uid, packet.body);
+            sendFrame(0x0604, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0605: {
+            auto [rsp, deliveries] = call.handleCancel(uid, packet.body);
+            sendFrame(0x0605, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0606: {
+            auto [rsp, deliveries] = call.handleHangup(uid, packet.body);
+            sendFrame(0x0606, rsp);
+            for (const auto& d : deliveries) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        case 0x0607:  // SDP 重协商
+        case 0x0608: {  // ICE 候选
+            for (const auto& d : call.handleRelay(uid, msgId, packet.body)) {
+                m_server.deliverToUid(d.uid, d.msgId, d.body);
+            }
+            return;
+        }
+        default:
+            break;
+    }
 
     // ---- 社交帧（好友 0x02xx / 群组 0x04xx）----
     switch (msgId) {

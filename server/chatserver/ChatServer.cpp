@@ -7,6 +7,7 @@
 #include "ChatSession.h"
 #include "MessageService.h"
 #include "SocialService.h"
+#include "CallService.h"
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/config/Config.h"
 #include "lingxi/logging/Logger.h"
@@ -62,6 +63,7 @@ ChatServer::ChatServer(asio::io_context& ioContext, ThreadPool& handlerPool)
         std::make_unique<MessageService>(m_dbPool.get(), m_redis.get(), m_idGen.get());
     m_socialService =
         std::make_unique<SocialService>(m_dbPool.get(), m_redis.get(), m_idGen.get());
+    m_callService = std::make_unique<CallService>(*this, m_dbPool.get(), m_idGen.get());
 }
 
 ChatServer::~ChatServer() = default;
@@ -101,6 +103,7 @@ void ChatServer::start() {
         LX_LOG_ERROR("register to status failed (will retry via heartbeat)");
     }
     startHeartbeatTimer();
+    m_callService->startSweeper(m_io);
     doAccept();
     // 注册本节点 RPC 地址（跨节点投递寻址用）
     if (auto redis = m_redis->acquire()) {

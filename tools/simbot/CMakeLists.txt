@@ -28,3 +28,14 @@ add_executable(m4_flow
 )
 target_include_directories(m4_flow PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
 target_link_libraries(m4_flow PRIVATE lingxi_common lingxi_proto)
+
+# =====================================================================
+# @brief m5_flow：M5 通话信令面系统验证
+# =====================================================================
+add_executable(m5_flow
+    m5_flow.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/TcpClient.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/HttpManager.cpp
+)
+target_include_directories(m5_flow PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
+target_link_libraries(m5_flow PRIVATE lingxi_common lingxi_proto)
