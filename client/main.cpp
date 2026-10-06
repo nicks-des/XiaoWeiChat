@@ -12,6 +12,7 @@
 #include <random>
 
 #include "client/service/AccountService.h"
+#include "client/service/FileService.h"
 #include "client/ui/LoginWindow.h"
 #include "client/ui/MainPanel.h"
 #include "lingxi/logging/Logger.h"
@@ -38,7 +39,8 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     lingxi::log::init("client", "info", "logs");
 
-    if (!lingxi::client::AccountService::instance().setup()) {
+    if (!lingxi::client::AccountService::instance().setup() ||
+        !lingxi::client::FileService::instance().setup()) {
         std::cerr << "[client] config load failed" << std::endl;
         return 1;
     }

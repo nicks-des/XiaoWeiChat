@@ -79,6 +79,34 @@
 
 ---
 
+## 2026-10-06 M4 文件服务测试轮
+
+- **FileServer 冒烟（Python 裸 HTTP）**：分块上传/不完整 complete 拒绝/同会话断点续传/
+  MD5 篡改拒绝合并/Range 206 断点读/秒传命中——全部通过。
+- **系统验证 m4_flow：M4_FLOW_PASS（6 场景）**
+  1. 5MB 随机文件分块上传（4MB+1MB 两块）；
+  2. 下载回读字节级一致（round-trip）；
+  3. Range 读尾部 1MB（206 语义）；
+  4. 同 md5+size 二次预检 → 秒传命中同一 fid；
+  5. 块数不足时 complete 拒绝；
+  6. 内容与声明 MD5 不符时合并拒绝且不留脏文件。
+- **全量回归**：m2_flow / m3_flow / 客户端自动验收 / 单测 30/30 全部通过。
+- **过程中发现并修复（均已回归）**：
+  1. **Windows SO_RCVTIMEO/SO_SNDTIMEO 为 DWORD 毫秒**（Linux 是 timeval）——传 timeval
+     被解释成 30ms，4MB 大响应必超时。客户端与服务端 alike，教材级跨平台坑；
+  2. **HttpServer 路由未剥离查询串**——带 query 的目标匹配不到精确路由 → findHandler
+     先剥离 `?` 后段；
+  3. **流式 MD5 缺 EVP_DigestInit_ex**——EVP_MD_CTX_new 只建空上下文，Update 直接失败；
+  4. **前缀路由第二参数语义**——处理器拿的是 clientIp 不是 target，下载路径改为
+     从 request.target() 自取并剥 query；
+  5. **t_login_session.token CHAR(64) 过短**——token 实为 uid.expire.hmac 约 100 字符，
+     登录流水入库静默失败（1406）→ VARCHAR(128)；
+  6. MSBuild 增量构建偶发吞产物：回归前一律全量 build 并以 exe 时间戳为准。
+- **遗留**：下载大文件整段入内存（M8 改 file_body/流式）；缩略图生成（stb）与语音录制
+  （QAudioSource+Opus）排入 M5 前置小迭代；上传会话位图跨重启持久化。
+
+---
+
 ## 2026-10-05 M2 消息内核测试轮
 
 - **环境**：DEV 单机三进程 + MySQL:3316 + Redis:6379；联调 `tools/simbot/m2_flow.exe`（复用客户端网络层）。

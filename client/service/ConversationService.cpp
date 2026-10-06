@@ -103,6 +103,37 @@ std::string ConversationService::sendTextToConv(int64_t convId, const std::strin
     return clientMsgId;
 }
 
+std::string ConversationService::sendFileMessage(int64_t convId, int64_t toUid, int32_t msgType,
+                                                 const std::string& fid, const std::string& name,
+                                                 int64_t size) {
+    const std::string clientMsgId = Uuid::generate();
+    nlohmann::json payload = {{"fid", fid}, {"name", name}, {"size", size}};
+    const std::string payloadStr = payload.dump();
+
+    LocalStore::MsgRow row;
+    row.convId = convId;
+    row.clientMsgId = clientMsgId;
+    row.msgType = msgType;
+    row.status = -1;
+    row.payload = payloadStr;
+    row.sendTimeMs = TimeUtil::nowMs();
+    m_store.insertMessage(row);
+
+    MessageSendRequest request;
+    auto* body = request.mutable_body();
+    if (convId > 0) {
+        body->set_conv_id(convId);
+        body->set_group_id(convId);
+    }
+    body->set_to_uid(toUid);
+    body->set_client_msg_id(clientMsgId);
+    body->set_msg_type(static_cast<MsgType>(msgType));
+    body->set_send_time_ms(row.sendTimeMs);
+    body->set_payload(payloadStr);
+    m_tcp->send(0x0301, request.SerializeAsString());
+    return clientMsgId;
+}
+
 void ConversationService::markRead(int64_t convId) {
     const int64_t lastSeq = m_store.maxSeq(convId);
     if (lastSeq <= 0) {

@@ -6,6 +6,7 @@
 
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/md5.h>
 #include <openssl/rand.h>
 
 #include <cstdint>
@@ -77,6 +78,48 @@ std::string hashPassword(const std::string& saltHex, const std::string& password
 bool verifyPassword(const std::string& saltHex, const std::string& password,
                     const std::string& expectedHashHex) {
     return constantTimeEquals(hashPassword(saltHex, password), expectedHashHex);
+}
+
+std::string md5Hex(const std::string& data) {
+    unsigned char digest[EVP_MAX_MD_SIZE] = {0};
+    unsigned int digestLen = 0;
+    if (EVP_Digest(data.data(), data.size(), digest, &digestLen, EVP_md5(), nullptr) != 1) {
+        throw std::runtime_error("EVP_Digest(MD5) failed");
+    }
+    return toHex(digest, digestLen);
+}
+
+/* ==================== StreamingMd5 ==================== */
+
+StreamingMd5::StreamingMd5() {
+    // EVP_MD_CTX_new 仅创建空上下文：必须 DigestInit 绑定算法后才能 Update
+    m_ctx = EVP_MD_CTX_new();
+    if (m_ctx == nullptr ||
+        EVP_DigestInit_ex(static_cast<EVP_MD_CTX*>(m_ctx), EVP_md5(), nullptr) != 1) {
+        throw std::runtime_error("EVP_MD_CTX init failed");
+    }
+}
+
+StreamingMd5::~StreamingMd5() {
+    if (m_ctx != nullptr) {
+        EVP_MD_CTX_free(static_cast<EVP_MD_CTX*>(m_ctx));
+        m_ctx = nullptr;
+    }
+}
+
+void StreamingMd5::update(const char* data, size_t len) {
+    if (EVP_DigestUpdate(static_cast<EVP_MD_CTX*>(m_ctx), data, len) != 1) {
+        throw std::runtime_error("EVP_DigestUpdate failed");
+    }
+}
+
+std::string StreamingMd5::finalHex() {
+    unsigned char digest[EVP_MAX_MD_SIZE] = {0};
+    unsigned int digestLen = 0;
+    if (EVP_DigestFinal_ex(static_cast<EVP_MD_CTX*>(m_ctx), digest, &digestLen) != 1) {
+        throw std::runtime_error("EVP_DigestFinal_ex failed");
+    }
+    return toHex(digest, digestLen);
 }
 
 std::string hmacSha256Hex(const std::string& secretKey, const std::string& data) {

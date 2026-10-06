@@ -14,6 +14,12 @@
     "httpPort": 8080,
     "machineId": 11
   },
+  "fileserver": {
+    "host": "127.0.0.1",
+    "httpPort": 8085,
+    "storageDir": "data/files",
+    "chunkSize": 4194304
+  },
   "chatserver": {
     "host": "127.0.0.1",
     "clientPort": 8888,

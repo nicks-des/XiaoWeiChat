@@ -49,6 +49,19 @@ public:
     std::string sendText(int64_t toUid, const std::string& text);
 
     /**
+     * @brief 发送文件类消息（图片/语音/视频/文件；payload 组装见 docs/02 §3.2）。
+     * @param convId  目标会话（0 表示新单聊，此时用 toUid）
+     * @param toUid   单聊对端（convId>0 时忽略）
+     * @param msgType MSG_IMAGE/MSG_FILE
+     * @param fid     服务端文件 ID
+     * @param name    原始文件名
+     * @param size    字节数
+     * @return std::string clientMsgId
+     */
+    std::string sendFileMessage(int64_t convId, int64_t toUid, int32_t msgType,
+                                const std::string& fid, const std::string& name, int64_t size);
+
+    /**
      * @brief 按已有会话发送文本（群聊/已建会话的单聊）。
      * @param convId 会话 ID
      * @param text   文本内容

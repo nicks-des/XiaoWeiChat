@@ -17,6 +17,8 @@ using asio::ip::tcp;             ///< TCP 类型简写
 
 #include <functional>
 #include <map>
+#include <utility>
+#include <vector>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -66,11 +68,16 @@ public:
     HttpServer(asio::io_context& ioContext, unsigned short port, ThreadPool& handlerPool);
 
     /**
-     * @brief 注册路由（须在 start() 前完成）。
-     * @param method HTTP 方法（"GET"/"POST"）
+     * @brief 注册精确路由（须在 start() 前完成）。
+     * @param method HTTP 方法（"GET"/"POST"/"PUT"）
      * @param target 精确路径（如 "/api/login"）
      */
     void route(const std::string& method, const std::string& target, Handler handler);
+
+    /**
+     * @brief 注册前缀路由（如 "/api/file/" 支持变量路径）。
+     */
+    void routePrefix(const std::string& method, const std::string& prefix, Handler handler);
 
     /**
      * @brief 启动接受循环（异步，不阻塞）。
@@ -102,7 +109,8 @@ private:
     asio::io_context& m_io;
     tcp::acceptor m_acceptor;
     ThreadPool& m_handlerPool;
-    std::map<std::string, Handler> m_routes;  ///< 路由表（start 前注册，读多写少）
+    std::map<std::string, Handler> m_routes;  ///< 精确路由表（start 前注册）
+    std::vector<std::pair<std::string, Handler>> m_prefixRoutes;  ///< 前缀路由（下载等变量路径）
     std::mutex m_routeMutex;
 };
 

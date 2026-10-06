@@ -20,6 +20,19 @@ class MainPanel : public QWidget {
 public:
     explicit MainPanel(QWidget* parent = nullptr);
 
+protected:
+    /**
+     * @brief 拖拽进入：接受本地文件列表（M4）。
+     */
+    void dragEnterEvent(QDragEnterEvent* event) override;
+
+    /**
+     * @brief 拖放：上传并发送文件/图片消息。
+     */
+    void dropEvent(QDropEvent* event) override;
+
+public:
+
     /**
      * @brief 设置当前登录用户并刷新各列表。
      */
@@ -53,6 +66,26 @@ private:
      * @brief 发送输入框内容（群会话走 conv 路径，单聊未建会话走 to_uid 路径）。
      */
     void onSendClicked();
+
+    /**
+     * @brief 上传并发送一个本地文件（图片按扩展名走 MSG_IMAGE）。
+     */
+    void uploadAndSend(const QString& filePath);
+
+    /**
+     * @brief 下载消息中的文件/图片（双击触发）。
+     */
+    void downloadMessage(long long msgDbId);
+
+    /**
+     * @brief 从消息 payload 提取文件名（文件/图片渲染）。
+     */
+    static QString extractFileName(const std::string& payload);
+
+    /**
+     * @brief 消息 DB id 与列表行的映射（下载用）。
+     */
+    QListWidgetItem* findItemByRow(int row);
 
     /**
      * @brief 发起单聊：输入对端 uid。

@@ -9,6 +9,7 @@ add_executable(lingxi_client
     service/AccountService.cpp
     service/ConversationService.cpp
     service/SocialService.cpp
+    service/FileService.cpp
     data/LocalStore.cpp
     ui/LoginWindow.cpp
     ui/MainPanel.cpp

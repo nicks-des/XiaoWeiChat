@@ -11,8 +11,8 @@ namespace lingxi::http {
 namespace beast = boost::beast;
 namespace http = boost::beast::http;
 
-/** 请求体上限 1MB（JSON 接口足够） */
-constexpr std::size_t kMaxBodyBytes = 1024 * 1024;
+/** 请求体上限 32MB（文件分块上传 4MB/块 + 余量；JSON 接口不受影响） */
+constexpr std::size_t kMaxBodyBytes = 32 * 1024 * 1024;
 
 HttpResponse makeJsonResponse(http::status status, const std::string& jsonBody) {
     HttpResponse response{status, 11};  // HTTP/1.1
@@ -43,6 +43,12 @@ void HttpServer::route(const std::string& method, const std::string& target, Han
     m_routes[routeKey(method, target)] = std::move(handler);
 }
 
+void HttpServer::routePrefix(const std::string& method, const std::string& prefix,
+                             Handler handler) {
+    std::lock_guard<std::mutex> lock(m_routeMutex);
+    m_prefixRoutes.emplace_back(method + " " + prefix, std::move(handler));
+}
+
 void HttpServer::start() {
     doAccept();
 }
@@ -60,8 +66,17 @@ void HttpServer::doAccept() {
 
 HttpServer::Handler HttpServer::findHandler(const std::string& method, const std::string& target) {
     std::lock_guard<std::mutex> lock(m_routeMutex);
-    auto it = m_routes.find(routeKey(method, target));
-    return it == m_routes.end() ? nullptr : it->second;
+    const std::string key = routeKey(method, target);
+    auto it = m_routes.find(key);
+    if (it != m_routes.end()) {
+        return it->second;
+    }
+    for (const auto& entry : m_prefixRoutes) {
+        if (key.compare(0, entry.first.size(), entry.first) == 0) {
+            return entry.second;
+        }
+    }
+    return nullptr;
 }
 
 /* ==================== Session ==================== */
@@ -94,8 +109,13 @@ void HttpServer::Session::handleRequest(HttpRequest&& request) {
         return ec ? std::string("unknown") : peer.address().to_string();
     }();
 
-    auto handler = m_server.findHandler(std::string(request.method_string()),
-                                        std::string(request.target()));
+    // 路由匹配剥离查询串（?a=b），处理器的 target 参数保留完整原始值
+    std::string target(request.target());
+    const auto queryPos = target.find('?');
+    if (queryPos != std::string::npos) {
+        target.resize(queryPos);
+    }
+    auto handler = m_server.findHandler(std::string(request.method_string()), target);
     if (handler == nullptr) {
         doWrite(makeErrorResponse(http::status::not_found, 404, "route not found"));
         return;

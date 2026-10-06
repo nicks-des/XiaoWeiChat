@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS t_user (
 CREATE TABLE IF NOT EXISTS t_login_session (
   id         BIGINT UNSIGNED PRIMARY KEY,
   uid        BIGINT UNSIGNED NOT NULL,
-  token      CHAR(64)     NOT NULL,
+  token      VARCHAR(128) NOT NULL,                -- uid.expire.hmac 共约 100 字符
   device_id  VARCHAR(64)  NOT NULL DEFAULT '',
   login_ip   VARCHAR(45)  NOT NULL DEFAULT '',
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
