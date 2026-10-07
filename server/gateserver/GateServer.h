@@ -60,6 +60,7 @@ private:
     std::unique_ptr<rpc::RpcClientPool> m_statusRpc;   ///< Status RPC 客户端池
     std::unique_ptr<SnowflakeIdGenerator> m_idGenerator;  ///< uid 生成器（NonCopyable 故指针持有）
 
+    size_t m_rateLimit = 20;                                   ///< 窗口内限额（config gateserver.rateLimit）
     std::mutex m_rateMutex;                                    ///< 限流表锁
     std::map<std::string, std::deque<int64_t>> m_rateWindow;   ///< ip → 请求时间戳
 };

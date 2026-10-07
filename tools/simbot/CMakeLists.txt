@@ -51,3 +51,14 @@ add_executable(m5_media
 )
 target_include_directories(m5_media PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
 target_link_libraries(m5_media PRIVATE lingxi_common lingxi_proto LibDataChannel::LibDataChannel Opus::opus)
+
+# =====================================================================
+# @brief m6_flow：M6 酒馆全链路验证
+# =====================================================================
+add_executable(m6_flow
+    m6_flow.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/TcpClient.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/HttpManager.cpp
+)
+target_include_directories(m6_flow PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
+target_link_libraries(m6_flow PRIVATE lingxi_common lingxi_proto)

@@ -40,6 +40,10 @@ public:
         std::string errMsg;
         std::string ackBody;          ///< MessageAck(0x0302) protobuf（发送者）
         std::vector<Delivery> deliveries;  ///< 接收方投递列表
+        bool aiTarget = false;        ///< 接收方含 AI 角色（T60-04：需提交酒馆任务）
+        int64_t aiUid = 0;            ///< AI 角色 uid
+        int64_t aiPlaceholderSeq = 0; ///< AI 回复占位 seq（status=2 已落库）
+        int64_t convIdOut = 0;        ///< 会话 ID（AI 提交用）
     };
 
     /**

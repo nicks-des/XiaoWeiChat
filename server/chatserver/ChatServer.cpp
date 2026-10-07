@@ -8,6 +8,8 @@
 #include "MessageService.h"
 #include "SocialService.h"
 #include "CallService.h"
+
+#include "lingxi/rpc/RpcFrame.h"
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/config/Config.h"
 #include "lingxi/logging/Logger.h"
@@ -64,6 +66,28 @@ ChatServer::ChatServer(asio::io_context& ioContext, ThreadPool& handlerPool)
     m_socialService =
         std::make_unique<SocialService>(m_dbPool.get(), m_redis.get(), m_idGen.get());
     m_callService = std::make_unique<CallService>(*this, m_dbPool.get(), m_idGen.get());
+    m_aiRpc = std::make_unique<rpc::RpcClientPool>(
+        config.get<std::string>("aiserver.host", "127.0.0.1"),
+        static_cast<unsigned short>(config.get<int>("aiserver.rpcPort", 9003)), 2);
+}
+
+void ChatServer::submitAiChat(int64_t convId, int64_t aiUid, int64_t userUid,
+                              int64_t placeholderSeq, int64_t triggerSeq) {
+    AiSubmitChatRequest request;
+    request.set_conv_id(convId);
+    request.set_ai_uid(aiUid);
+    request.set_user_uid(userUid);
+    request.set_placeholder_seq(placeholderSeq);
+    request.set_trigger_seq(triggerSeq);
+    try {
+        auto rsp = m_aiRpc->call(rpc::kServiceAi, 0x01, request.SerializeAsString());
+        AiSubmitChatResponse response;
+        if (response.ParseFromString(rsp) && response.err_code() != 0) {
+            LX_LOG_WARN("ai submit rejected: {}", response.err_msg());
+        }
+    } catch (const rpc::RpcError& e) {
+        LX_LOG_ERROR("ai submit rpc failed: {}", e.what());
+    }
 }
 
 ChatServer::~ChatServer() = default;

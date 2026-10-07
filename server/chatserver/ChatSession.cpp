@@ -117,6 +117,7 @@ void ChatSession::dispatchFrame(const net::DecodedPacket& packet) {
         case 0x0606:  // 挂断
         case 0x0607:  // SDP 重协商中继
         case 0x0608:  // ICE 候选中继
+        case 0x0704:  // Swipe 重掷（酒馆）
         case 0x0301:  // 消息发送
         case 0x0304:  // 已读上报
         case 0x0306:  // 撤回
@@ -296,6 +297,11 @@ void ChatSession::handleBusinessFrame(uint16_t msgId, const net::DecodedPacket& 
             }
             for (const auto& delivery : outcome.deliveries) {
                 m_server.deliverToUid(delivery.uid, delivery.msgId, delivery.body);
+            }
+            // T60-04：AI 会话 → 提交酒馆生成任务（AIServer 异步流式回推）
+            if (outcome.aiTarget) {
+                m_server.submitAiChat(outcome.convIdOut, outcome.aiUid, uid,
+                                      outcome.aiPlaceholderSeq, outcome.convIdOut);
             }
             break;
         }

@@ -22,9 +22,8 @@ namespace {
 
 namespace bhttp = boost::beast::http;
 
-/** 限流参数：10 秒窗口内每 IP 最多 20 次 */
+/** 限流窗口 */
 constexpr int64_t kRateWindowMs = 10 * 1000;
-constexpr size_t kRateLimit = 20;
 
 /** 用户名/密码合法长度（T10-02 校验规则） */
 constexpr size_t kUsernameMin = 3;
@@ -65,6 +64,7 @@ void GateServer::setup(http::HttpServer& server) {
         static_cast<unsigned short>(config.get<int>("statusserver.rpcPort", 9000)), 2);
 
     m_idGenerator = std::make_unique<SnowflakeIdGenerator>(config.get<int>("gateserver.machineId", 11));
+    m_rateLimit = static_cast<size_t>(config.get<int>("gateserver.rateLimit", 20));
 
     server.route("POST", "/api/register",
                  [this](const bhttp::request<bhttp::string_body>& request,
@@ -85,7 +85,7 @@ bool GateServer::allowRequest(const std::string& ip) {
     while (!window.empty() && now - window.front() > kRateWindowMs) {
         window.pop_front();
     }
-    if (window.size() >= kRateLimit) {
+    if (window.size() >= m_rateLimit) {
         LX_LOG_WARN("rate limit hit, ip={}", ip);
         return false;
     }

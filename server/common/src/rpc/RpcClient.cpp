@@ -17,23 +17,24 @@ RpcClientPool::Connection::Connection(asio::io_context& io, std::string host,
       m_port(port) {}
 
 bool RpcClientPool::Connection::connect(std::chrono::milliseconds timeout) {
-    std::promise<bool> connectResult;
-    auto future = connectResult.get_future();
+    // promise 放堆上由回调持有：超时路径下栈帧已销毁，按引用捕获会写悬垂内存（abort 退出码 3）
+    auto connectResult = std::make_shared<std::promise<bool>>();
+    auto future = connectResult->get_future();
     auto self = shared_from_this();
 
     asio::ip::tcp::resolver resolver(m_io);
     asio::async_connect(
         m_socket, resolver.resolve(m_host, std::to_string(m_port)),
-        [this, self, &connectResult](boost::system::error_code ec, const asio::ip::tcp::endpoint&) {
+        [this, self, connectResult](boost::system::error_code ec, const asio::ip::tcp::endpoint&) {
             if (ec) {
                 LX_LOG_WARN("RpcClient connect {}:{} failed: {}", m_host, m_port, ec.message());
-                connectResult.set_value(false);
+                connectResult->set_value(false);
                 return;
             }
             m_alive = true;
             LX_LOG_INFO("RpcClient connected {}:{}", m_host, m_port);
             doRead();
-            connectResult.set_value(true);
+            connectResult->set_value(true);
         });
 
     if (future.wait_for(timeout) != std::future_status::ready) {

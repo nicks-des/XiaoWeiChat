@@ -12,6 +12,7 @@
   },
   "gateserver": {
     "httpPort": 8080,
+    "rateLimit": 200,
     "machineId": 11
   },
   "fileserver": {
@@ -25,6 +26,17 @@
     "clientPort": 8888,
     "rpcPort": 9001,
     "serverId": 1
+  },
+  "aiserver": {
+    "rpcPort": 9003,
+    "machineId": 51
+  },
+  "llm": {
+    "provider": "mock",
+    "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    "model": "glm-4-flash",
+    "apiKey": "",
+    "maxTokens": 512
   },
   "log": {
     "level": "debug",

@@ -8,6 +8,7 @@
 
 #include "lingxi/base/TimeUtil.h"
 #include "lingxi/base/Uuid.h"
+#include "lingxi/base/Uuid.h"
 #include "lingxi/logging/Logger.h"
 
 #include "lingxi.pb.h"
@@ -198,8 +199,55 @@ MessageService::SendOutcome MessageService::handleSend(int64_t fromUid,
             {memberUid, 0x0303, notifyMsg.SerializeAsString()});
     }
 
-    LX_LOG_INFO("msg persisted: conv={} seq={} from={} clientMsgId={}", convId, seq, fromUid,
-                input.client_msg_id());
+    // ---- T60-04 AI 分流：接收方含 AI 角色 → 预占回复 seq（status=2 占位）----
+    for (int64_t memberUid : members(convId)) {
+        if (memberUid == fromUid) {
+            continue;
+        }
+        db::MySqlResult userRow;
+        if (conn->query("SELECT user_type FROM t_user WHERE id=" + std::to_string(memberUid),
+                        userRow) && userRow.next() && userRow.getInt64(0) == 1) {
+            const int64_t aiSeqReply =
+                redis->exec("INCR %s", ("seq:conv:" + std::to_string(convId)).c_str()).integer();
+            const int64_t placeholderMsgId = m_idGen->nextId();
+            nlohmann::json placeholderPayload = {{"text", ""}, {"versions", nlohmann::json::array()},
+                                                 {"activeIndex", 0}, {"msgId", placeholderMsgId}};
+            if (conn->execute("INSERT INTO t_message (conv_id, seq, msg_id, client_msg_id, "
+                              "from_uid, msg_type, status, payload, created_at) VALUES (" +
+                              std::to_string(convId) + ", " + std::to_string(aiSeqReply) + ", " +
+                              std::to_string(placeholderMsgId) + ", '" +
+                              Uuid::generate() + "', " + std::to_string(memberUid) + ", " +
+                              std::to_string(input.msg_type()) + ", 2, '" +
+                              conn->escapeString(placeholderPayload.dump()) +
+                              "', FROM_UNIXTIME(" + std::to_string(nowMs / 1000) + "))")) {
+                outcome.aiTarget = true;
+                outcome.aiUid = memberUid;
+                outcome.aiPlaceholderSeq = aiSeqReply;
+                outcome.convIdOut = convId;
+                // 占位消息即时通知（客户端呈现「生成中」气泡）
+                MsgBody placeholder;
+                placeholder.set_conv_id(convId);
+                placeholder.set_from_uid(memberUid);
+                placeholder.set_conv_seq(aiSeqReply);
+                placeholder.set_msg_type(input.msg_type());
+                placeholder.set_send_time_ms(nowMs);
+                placeholder.set_payload(placeholderPayload.dump());
+                placeholder.set_status(2);
+                placeholder.set_msg_id(placeholderMsgId);
+                MessageNotify placeholderNotify;
+                *placeholderNotify.mutable_body() = placeholder;
+                outcome.deliveries.push_back(
+                    {fromUid, 0x0303, placeholderNotify.SerializeAsString()});
+                // AI 会话扩展初始化（好感度域）
+                conn->execute("INSERT IGNORE INTO t_ai_conversation_ext (conv_id) VALUES (" +
+                              std::to_string(convId) + ")");
+            }
+            break;  // 单 AI 会话一次只触发一个 AI（剧情群多 AI 由 M7 导演编排）
+        }
+    }
+
+    LX_LOG_INFO("msg persisted: conv={} seq={} from={} clientMsgId={} ai={}", convId, seq,
+                fromUid, input.client_msg_id(), outcome.aiTarget);
     return outcome;
 }
 

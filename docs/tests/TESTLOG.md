@@ -148,6 +148,29 @@
 
 ---
 
+## 2026-10-07 M6 酒馆一期测试轮
+
+- **系统验证 m6_flow：M6_FLOW_PASS（全链路一次贯通）**
+  1. 用户消息落库（含世界书触发词「蛊」）→ ACK；
+  2. AI 占位消息即时通知（from=白露, status=2, seq=user+1 预占）；
+  3. mock LLM 流式分片 277 字符（0x0701，UTF-8 字符边界感知切割）；
+  4. 结束帧（0x0702）：权威全文 162 字符、**好感度标记已剥离**、affinity=+1；
+  5. 正式消息（0x0303 status=0）payload 携带 versions[]（Swipe 结构就位）；
+  6. **DB 核验**：t_message.status=0 + versions JSON ✓；t_ai_conversation_ext.affinity=1 ✓。
+- **全量回归**：m2/m3/m4/m5_flow/m5_media/客户端验收/单测 30/30 全部通过（连跑 2 轮稳定）。
+- **过程中发现并修复（均已回归）**：
+  1. **RpcClient connect 悬垂 promise（教材级）**：async_connect 回调按引用捕获栈上 promise，
+     超时路径下栈帧销毁 → 回调写悬垂内存 → abort（退出码 3）→ promise 移入 shared_ptr 由回调持有；
+  2. **mock 分片劈开 UTF-8 多字节字符**：protobuf string 字段报 invalid UTF-8 → 分片切割
+     改为 UTF-8 字符边界感知；
+  3. **Gate 限流 20/10s 拦截回归套件** → rateLimit 可配置（dev=200）；
+  4. **同 call_id 重复邀请覆盖失败**：m_sessions.emplace 不覆盖残留会话 → insert_or_assign；
+  5. MSBuild 增量构建吞产物（本里程碑第 3 次）→ 回归前全量构建已立为铁律。
+- **客户端体验说明**：真实 Key 配置 llm.provider=openai + apiKey 后即接 GLM 等兼容 API；
+  mock provider 为自动化测试确定性后端。
+
+---
+
 ## 2026-10-05 M2 消息内核测试轮
 
 - **环境**：DEV 单机三进程 + MySQL:3316 + Redis:6379；联调 `tools/simbot/m2_flow.exe`（复用客户端网络层）。

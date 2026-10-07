@@ -625,3 +625,78 @@ message GroupUpdateNotice {
   int64 target_uid = 3;  ///< 退出/被踢者
   string name      = 4;  ///< 群名（解散后仍可用于客户端清理）
 }
+
+/* ========== AIServer 内部方法（serviceId=0x04，docs/04 §3/§6） ========== */
+
+/**
+ * @brief AI 聊天任务提交（ChatServer → AIServer）。
+ *
+ * ChatServer 已完成：用户消息落库(seq=N) + AI 占位消息落库(seq=N+1, status=2)。
+ * AIServer 完成生成后：流式经 ChatServer PushToUid 下发 0x0701/0x0702，并改写占位消息。
+ */
+message AiSubmitChatRequest {
+  int64  conv_id        = 1;  ///< 会话 ID
+  int64  ai_uid         = 2;  ///< AI 角色 uid（占位消息归属者）
+  int64  user_uid       = 3;  ///< 触发的用户
+  int64  placeholder_seq = 4; ///< AI 回复预占的 seq（status=2 占位已落库）
+  int64  trigger_seq    = 5;  ///< 触发本轮的用户消息 seq
+}
+
+/**
+ * @brief 任务提交回执。
+ */
+message AiSubmitChatResponse {
+  int32 err_code = 1;
+  string err_msg = 2;
+}
+
+/**
+ * @brief Swipe 重掷任务提交（0x0704 的服务端续段；docs/04 §10）。
+ */
+message AiSwipeRequestInternal {
+  int64  conv_id        = 1;
+  int64  ai_uid         = 2;
+  int64  user_uid       = 3;
+  int64  target_seq     = 4;  ///< 目标 AI 消息 seq
+  int32  version_count  = 5;  ///< 现有版本数
+}
+
+/**
+ * @brief 流式分片推送（ChatServer → 用户，msgId 0x0701，docs/02 §3）。
+ */
+message AiStreamChunk {
+  int64  conv_id    = 1;
+  int64  target_seq = 2;  ///< 目标 AI 消息 seq
+  string delta_text = 3;  ///< 增量文本
+}
+
+/**
+ * @brief 流式结束推送（msgId 0x0702；最终全文权威重写）。
+ */
+message AiStreamEnd {
+  int64  conv_id        = 1;
+  int64  target_seq     = 2;
+  string final_text     = 3;  ///< 最终全文（已剥离好感度标记）
+  int32  finish_reason  = 4;  ///< 0 stop 1 length 2 error-truncated
+  int32  affinity_delta = 5;  ///< 好感度增量
+}
+
+/**
+ * @brief 生成失败通知（msgId 0x0703）。
+ */
+message AiStreamError {
+  int64  conv_id    = 1;
+  int64  target_seq = 2;
+  string err_msg    = 3;  ///< 用户可读的兜底文案
+}
+
+/**
+ * @brief Swipe 结果推送（msgId 0x0705）。
+ */
+message AiSwipeResult {
+  int64  conv_id       = 1;
+  int64  target_seq    = 2;
+  string new_version   = 3;  ///< 新版本全文
+  int32  version_count = 4;  ///< 现有版本总数
+  int32  affinity_delta = 5; ///< 首版本才结算，重掷恒为 0
+}

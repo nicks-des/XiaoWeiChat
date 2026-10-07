@@ -106,6 +106,22 @@ public:
     ThreadPool& handlerPool() { return m_handlerPool; }
 
     /**
+     * @brief AIServer RPC 客户端池（酒馆任务提交）。
+     */
+    rpc::RpcClientPool* aiRpc() { return m_aiRpc.get(); }
+
+    /**
+     * @brief 提交酒馆生成任务到 AIServer（异步：AIServer 内部线程池执行）。
+     * @param convId          会话 ID
+     * @param aiUid           AI 角色 uid
+     * @param userUid         触发用户
+     * @param placeholderSeq  AI 回复占位 seq
+     * @param triggerSeq      触发消息 seq
+     */
+    void submitAiChat(int64_t convId, int64_t aiUid, int64_t userUid, int64_t placeholderSeq,
+                      int64_t triggerSeq);
+
+    /**
      * @brief 本实例编号（路由表值）。
      */
     int32_t serverId() const { return m_serverId; }
@@ -165,6 +181,7 @@ private:
     std::unique_ptr<CallService> m_callService;             ///< 通话信令服务
     std::mutex m_peerRpcMutex;                              ///< 跨节点 RPC 客户端表锁
     std::map<int32_t, std::unique_ptr<rpc::RpcClientPool>> m_peerRpc;  ///< serverId → 客户端池
+    std::unique_ptr<rpc::RpcClientPool> m_aiRpc;            ///< AIServer RPC（酒馆任务提交）
 
     std::mutex m_sessionsMutex;                                        ///< 会话表锁
     std::map<int64_t, std::shared_ptr<ChatSession>> m_uidToSession;    ///< uid → 会话
