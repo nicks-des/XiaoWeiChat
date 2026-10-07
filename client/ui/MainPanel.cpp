@@ -21,6 +21,8 @@
 #include "client/service/AccountService.h"
 #include "client/service/ConversationService.h"
 #include "client/service/FileService.h"
+#include "client/service/CallManager.h"
+#include "client/ui/CallWindow.h"
 #include "client/service/SocialService.h"
 
 namespace lingxi::client {
@@ -61,9 +63,11 @@ MainPanel::MainPanel(QWidget* parent) : QWidget(parent) {
     m_inputEdit = new QLineEdit(this);
     m_inputEdit->setPlaceholderText(QStringLiteral("输入消息…（Enter 发送）"));
     m_sendBtn = new QPushButton(QStringLiteral("发送"), this);
+    auto* callBtn = new QPushButton(QStringLiteral("语音通话"), this);
 
     auto* inputRow = new QHBoxLayout();
     inputRow->addWidget(m_inputEdit, 1);
+    inputRow->addWidget(callBtn);
     inputRow->addWidget(m_sendBtn);
 
     auto* rightLayout = new QVBoxLayout();
@@ -126,6 +130,14 @@ MainPanel::MainPanel(QWidget* parent) : QWidget(parent) {
 
     /* ==================== 交互 ==================== */
     connect(m_sendBtn, &QPushButton::clicked, this, &MainPanel::onSendClicked);
+    connect(callBtn, &QPushButton::clicked, this, [this] {
+        if (m_currentPeerUid <= 0) {
+            QMessageBox::information(this, QStringLiteral("提示"),
+                                     QStringLiteral("先选择好友或会话再发起通话"));
+            return;
+        }
+        CallManager::instance().startCall(m_currentPeerUid);
+    });
     connect(m_inputEdit, &QLineEdit::returnPressed, this, &MainPanel::onSendClicked);
     connect(m_newChatBtn, &QPushButton::clicked, this, &MainPanel::onStartChatClicked);
     connect(m_convList, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {

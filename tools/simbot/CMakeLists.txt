@@ -39,3 +39,15 @@ add_executable(m5_flow
 )
 target_include_directories(m5_flow PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
 target_link_libraries(m5_flow PRIVATE lingxi_common lingxi_proto)
+
+# =====================================================================
+# @brief m5_media：M5 媒体面系统验证（双端 PC 真连）
+# =====================================================================
+add_executable(m5_media
+    m5_media.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/TcpClient.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/HttpManager.cpp
+    ${CMAKE_SOURCE_DIR}/client/media/WebRtcPeer.cpp
+)
+target_include_directories(m5_media PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
+target_link_libraries(m5_media PRIVATE lingxi_common lingxi_proto LibDataChannel::LibDataChannel Opus::opus)

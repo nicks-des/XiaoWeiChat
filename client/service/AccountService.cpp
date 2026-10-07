@@ -15,6 +15,7 @@
 #include "client/net/HttpManager.h"
 #include "client/service/ConversationService.h"
 #include "client/service/SocialService.h"
+#include "client/service/CallManager.h"
 
 #include "lingxi.pb.h"
 
@@ -48,6 +49,7 @@ bool AccountService::setup() {
     m_gatePort = static_cast<unsigned short>(config.get<int>("gateserver.httpPort", 8080));
     m_tcp = std::make_unique<TcpClient>();
     SocialService::instance().setup(m_tcp.get());  // M3：社交服务共享同一条长连接
+    CallManager::instance().setup(m_tcp.get());    // M5：通话服务共享同一条长连接
 
     m_tcp->setCallbacks(
         [this](uint16_t msgId, const std::string& body) { onPacket(msgId, body); },
@@ -177,6 +179,10 @@ void AccountService::onPacket(uint16_t msgId, const std::string& body) {
     }
     if ((msgId >= 0x0200 && msgId <= 0x020F) || (msgId >= 0x0400 && msgId <= 0x040F)) {
         SocialService::instance().onPacket(msgId, body);  // M3 社交帧转发
+        return;
+    }
+    if (msgId >= 0x0600 && msgId <= 0x060F) {
+        CallManager::instance().onPacket(msgId, body);  // M5 通话信令转发
         return;
     }
     if (msgId == kMsgIdKick) {

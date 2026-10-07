@@ -44,9 +44,10 @@ find_package(hiredis CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)  # SHA256/HMAC（docs/02 §6）
 find_package(unofficial-sqlite3 CONFIG REQUIRED)  # 客户端本地缓存（ADR-009）
 find_package(LibDataChannel CONFIG REQUIRED)      # M5 音视频（ADR-003）
+find_package(Opus CONFIG REQUIRED)                # Opus 编解码（docs/05 §5）
 
 # Qt 为可选依赖：未找到时跳过所有 Qt 目标（M0 仅影响 qt_hello 演示）
-find_package(Qt5 QUIET COMPONENTS Core Gui Widgets PATHS ${LINGXI_QT_DIR} NO_DEFAULT_PATH)
+find_package(Qt5 QUIET COMPONENTS Core Gui Widgets Multimedia PATHS ${LINGXI_QT_DIR} NO_DEFAULT_PATH)
 if(Qt5_FOUND)
     message(STATUS "Qt5 found: ${Qt5_DIR}")
 else()

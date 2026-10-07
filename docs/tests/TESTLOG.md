@@ -127,6 +127,27 @@
 
 ---
 
+## 2026-10-07 M5 媒体面测试轮
+
+- **系统验证 m5_media：M5_MEDIA_PASS（连跑 3 次稳定）**
+  双端 WebRtcPeer 经真实信令交换 SDP/ICE → **ICE/DTLS/SRTP 全链路建立**（双方 PeerConnection
+  进入 Connected 态）→ 完整挂断信令收尾。音频编解码关闭（无采集设备场景），连接态即验证
+  WebRTC 传输栈；Opus 编解码在真机客户端启用。
+- **客户端媒体栈落地**：WebRtcPeer（libdatachannel PeerConnection + Opus 编解码 +
+  AudioRtpPacketizer/SR/NACK 链）、CallManager（信令编排 + QAudioInput 20ms 采集 +
+  QAudioOutput 推放）、CallWindow（来电/呼叫中/通话计时 UI）、MainPanel 语音通话按钮。
+- **过程中发现并修复（均已回归）**：
+  1. **无媒体轨 PC 无法生成 SDP** → 音轨始终创建，withAudio 仅控制编解码器；
+  2. **早到候选竞态**：A 的 ICE 候选可能先于 B 的 setRemoteDescription 到达而被 libdatachannel
+     丢弃 → WebRtcPeer 实现候选缓冲（markRemoteDescriptionSet 后统一冲刷）——WebRTC 标准模式；
+  3. **libdatachannel API 三连**：vcpkg port 的 srtp feature 才控制 NO_MEDIA（media feature 不存在）、
+     AudioRtpPacketizer 是模板（OpusRtpPacketizer=48kHz 别名）、rtc::binary 是 std::byte 容器；
+  4. **后台线程异常防护**：WebRtcPeer 回调与 ICE 泵全部 try/catch（asio io 线程的未捕获异常
+     会 terminate 整个进程，退出码 3）。
+- **全量回归**：m2/m3/m4/m5_flow/客户端/单测 30/30 全部通过。
+
+---
+
 ## 2026-10-05 M2 消息内核测试轮
 
 - **环境**：DEV 单机三进程 + MySQL:3316 + Redis:6379；联调 `tools/simbot/m2_flow.exe`（复用客户端网络层）。

@@ -12,6 +12,8 @@
 #include <random>
 
 #include "client/service/AccountService.h"
+#include "client/service/CallManager.h"
+#include "client/ui/CallWindow.h"
 #include "client/service/FileService.h"
 #include "client/ui/LoginWindow.h"
 #include "client/ui/MainPanel.h"
@@ -44,6 +46,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "[client] config load failed" << std::endl;
         return 1;
     }
+
 
     lingxi::client::LoginWindow loginWindow;
     lingxi::client::MainPanel mainPanel;

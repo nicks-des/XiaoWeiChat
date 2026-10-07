@@ -12,6 +12,7 @@
     "gtest",
     "openssl",
     "sqlite3",
-    "libdatachannel"
+    {"name": "libdatachannel", "features": ["srtp"]},
+    "opus"
   ]
 }

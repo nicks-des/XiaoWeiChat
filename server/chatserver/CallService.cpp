@@ -130,10 +130,10 @@ std::pair<std::string, std::vector<CallService::Delivery>> CallService::handleIn
     ring.set_offer_sdp(session.offerSdp);
     deliveries.push_back({session.calleeUid, 0x0602, ring.SerializeAsString()});
 
-    m_sessions.emplace(session.callId, std::move(session));
-
+    // insert_or_assign：同 call_id 重复邀请覆盖残留会话（客户端重试语义）
     LX_LOG_INFO("call invite: {} -> {} call={} media={}", callerUid, request.callee_uid(),
                 session.callId, session.mediaType);
+    m_sessions.insert_or_assign(session.callId, std::move(session));
     response.set_err_code(0);
     return {response.SerializeAsString(), deliveries};
 }
@@ -144,14 +144,19 @@ std::pair<std::string, std::vector<CallService::Delivery>> CallService::handleAc
     std::vector<Delivery> deliveries;
     CallAcceptRequest request;
     if (!request.ParseFromString(payloadBytes)) {
+        LX_LOG_WARN("call accept: bad parse");
         response.set_err_code(400);
         return {response.SerializeAsString(), deliveries};
     }
+    LX_LOG_INFO("call accept received: call={} from={}", request.call_id(), calleeUid);
 
     std::lock_guard<std::mutex> lock(m_mutex);
     auto it = m_sessions.find(request.call_id());
     if (it == m_sessions.end() || it->second.calleeUid != calleeUid ||
         it->second.state != kRinging) {
+        LX_LOG_WARN("call accept 404: found={} calleeMatch={} state={}", it != m_sessions.end(),
+                    it != m_sessions.end() ? it->second.calleeUid == calleeUid : false,
+                    it != m_sessions.end() ? it->second.state : -1);
         response.set_err_code(404);
         response.set_err_msg("call not ringing");
         return {response.SerializeAsString(), deliveries};

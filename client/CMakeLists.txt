@@ -10,16 +10,22 @@ add_executable(lingxi_client
     service/ConversationService.cpp
     service/SocialService.cpp
     service/FileService.cpp
+    service/CallManager.cpp
+    media/WebRtcPeer.cpp
     data/LocalStore.cpp
     ui/LoginWindow.cpp
     ui/MainPanel.cpp
+    ui/CallWindow.cpp
 )
 target_include_directories(lingxi_client PRIVATE ${CMAKE_SOURCE_DIR})  # 以 "client/..." 前缀引用
 target_link_libraries(lingxi_client
     PRIVATE lingxi_common
             lingxi_proto
             unofficial::sqlite3::sqlite3
+            LibDataChannel::LibDataChannel
+            Opus::opus
             Qt5::Core
             Qt5::Gui
             Qt5::Widgets
+            Qt5::Multimedia
 )
