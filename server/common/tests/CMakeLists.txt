@@ -14,6 +14,7 @@ add_executable(test_lingxi_common
     test_proto.cpp
     test_crypto.cpp
     test_rpcframe.cpp
+    test_pngcard.cpp
 )
 
 target_link_libraries(test_lingxi_common

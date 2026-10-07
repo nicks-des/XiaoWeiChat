@@ -158,6 +158,16 @@
   5. 正式消息（0x0303 status=0）payload 携带 versions[]（Swipe 结构就位）；
   6. **DB 核验**：t_message.status=0 + versions JSON ✓；t_ai_conversation_ext.affinity=1 ✓。
 - **全量回归**：m2/m3/m4/m5_flow/m5_media/客户端验收/单测 30/30 全部通过（连跑 2 轮稳定）。
+
+---
+
+## 2026-10-07 M6 收尾测试轮（PNG 角色卡）
+
+- **单测**：**35/35 通过**（新增 PngCard 5 项：base64 回环含中文、嵌入→提取回环、旧卡替换、
+  无卡返回 false、非 PNG 容错）。
+- **全量回归**：m2/m3/m4/m5_flow/m5_media/m6_flow/客户端验收全部通过。
+- **说明**：makeTestPng 初版 IDAT/IEND chunk 长度前缀写成了 ASCII 字符串而非二进制大端 →
+  embedCardJson 遍历越界返回 false → 修复为统一 appendChunk 辅助（4 字节大端长度）。
 - **过程中发现并修复（均已回归）**：
   1. **RpcClient connect 悬垂 promise（教材级）**：async_connect 回调按引用捕获栈上 promise，
      超时路径下栈帧销毁 → 回调写悬垂内存 → abort（退出码 3）→ promise 移入 shared_ptr 由回调持有；

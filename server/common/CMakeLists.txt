@@ -14,6 +14,7 @@ add_library(lingxi_common STATIC
     src/rpc/RpcClient.cpp
     src/http/HttpServer.cpp
     src/crypto/Crypto.cpp
+    src/utils/PngCard.cpp
 )
 
 target_include_directories(lingxi_common
