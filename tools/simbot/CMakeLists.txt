@@ -62,3 +62,14 @@ add_executable(m6_flow
 )
 target_include_directories(m6_flow PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
 target_link_libraries(m6_flow PRIVATE lingxi_common lingxi_proto)
+
+# =====================================================================
+# @brief m7_flow：M7 剧情群路由验证
+# =====================================================================
+add_executable(m7_flow
+    m7_flow.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/TcpClient.cpp
+    ${CMAKE_SOURCE_DIR}/client/net/HttpManager.cpp
+)
+target_include_directories(m7_flow PRIVATE ${LINGXI_BOOST_ROOT} ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/server/common/include ${CMAKE_BINARY_DIR}/proto/gen)
+target_link_libraries(m7_flow PRIVATE lingxi_common lingxi_proto)

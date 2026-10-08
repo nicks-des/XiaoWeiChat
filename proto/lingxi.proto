@@ -700,3 +700,62 @@ message AiSwipeResult {
   int32  version_count = 4;  ///< 现有版本总数
   int32  affinity_delta = 5; ///< 首版本才结算，重掷恒为 0
 }
+
+/* ========== M7 剧情群聊 / 记忆 / 广场 ========== */
+
+/**
+ * @brief 剧情群回合任务提交（ChatServer → AIServer，替代 AI 单聊的 SubmitChat）。
+ */
+message AiSubmitStoryTurnRequest {
+  int64  conv_id      = 1;  ///< 剧情群会话 ID
+  int64  user_uid     = 2;  ///< 触发的用户
+  int64  trigger_seq  = 3;  ///< 触发消息 seq
+  repeated int64 ai_uids = 4;  ///< 群内 AI 角色 uid 列表
+}
+
+/**
+ * @brief 记忆摘要任务提交（ChatServer → AIServer，阈值触发异步执行）。
+ */
+message AiSummaryTaskRequest {
+  int64  conv_id       = 1;  ///< 会话 ID
+  int64  ai_uid        = 2;  ///< AI 角色 uid
+  int64  last_seq      = 3;  ///< 当前最新 seq（摘要覆盖到此）
+  int64  last_summarized_seq = 4; ///< 上次摘要游标
+}
+
+/**
+ * @brief 广场角色列表请求（HTTP 或 0x0706 经 ChatServer 代理）。
+ */
+message TavernSquareRequest {
+  string keyword  = 1;  ///< 标签筛选（可空）
+  int32  offset   = 2;  ///< 分页偏移
+  int32  limit    = 3;  ///< 页大小
+}
+
+/**
+ * @brief 广场角色项。
+ */
+message TavernSquareItem {
+  int64  uid          = 1;  ///< 角色 uid
+  string name         = 2;  ///< 角色名
+  string description  = 3;  ///< 简介（截取）
+  string tags         = 4;  ///< 标签（逗号拼接）
+  string creator_notes = 5; ///< 创作者备注
+}
+
+/**
+ * @brief 广场列表响应。
+ */
+message TavernSquareResponse {
+  repeated TavernSquareItem characters = 1;
+  int32 total = 2;
+}
+
+/**
+ * @brief 记忆摘要结果（AIServer 内部用，写入 DB 后通知 ChatServer 更新 ext）。
+ */
+message AiMemorySummary {
+  int64  conv_id       = 1;
+  int64  last_summarized_seq = 2;
+  string summary       = 3;  ///< 滚动摘要
+}

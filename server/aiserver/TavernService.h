@@ -36,6 +36,11 @@ public:
      */
     void setPushChannel(rpc::RpcClientPool* pushChannel, int64_t chatServerId);
 
+    /**
+     * @brief LLM 网关访问器（StoryService 共享）。
+     */
+    LlmGateway& llm() { return m_llm; }
+
 private:
     /**
      * @brief SubmitChat（0x01）：任务入线程池，立即回执。

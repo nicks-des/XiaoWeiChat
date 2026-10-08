@@ -6,5 +6,6 @@ add_executable(aiserver
     main.cpp
     TavernService.cpp
     LlmGateway.cpp
+    StoryService.cpp
 )
 target_link_libraries(aiserver PRIVATE lingxi_common lingxi_proto OpenSSL::SSL OpenSSL::Crypto)

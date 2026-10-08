@@ -73,6 +73,52 @@ ChatServer::ChatServer(asio::io_context& ioContext, ThreadPool& handlerPool)
 
 void ChatServer::submitAiChat(int64_t convId, int64_t aiUid, int64_t userUid,
                               int64_t placeholderSeq, int64_t triggerSeq) {
+    // 剧情群（type=4）：发 StoryTurn（AIServer 内导演调度多 AI）；普通 AI 单聊发 SubmitChat
+    int convType = 1;
+    {
+        auto conn = m_dbPool->acquire();
+        if (conn != nullptr) {
+            db::MySqlResult row;
+            if (conn->query("SELECT type FROM t_conversation WHERE id=" +
+                                std::to_string(convId),
+                            row) && row.next()) {
+                convType = static_cast<int>(row.getInt64(0));
+            }
+        }
+    }
+    if (convType == 4) {
+        // 剧情群：查群内全部 AI 成员
+        std::vector<int64_t> aiUids;
+        {
+            auto conn = m_dbPool->acquire();
+            db::MySqlResult rows;
+            if (conn->query("SELECT m.uid FROM t_conversation_member m JOIN t_user u ON u.id=m.uid "
+                            "WHERE m.conv_id=" + std::to_string(convId) + " AND u.user_type=1",
+                            rows)) {
+                while (rows.next()) {
+                    aiUids.push_back(rows.getInt64(0));
+                }
+            }
+        }
+        AiSubmitStoryTurnRequest request;
+        request.set_conv_id(convId);
+        request.set_user_uid(userUid);
+        request.set_trigger_seq(triggerSeq);
+        for (int64_t uid : aiUids) {
+            request.add_ai_uids(uid);
+        }
+        try {
+            auto rsp = m_aiRpc->call(rpc::kServiceAi, 0x02, request.SerializeAsString());
+            AiSubmitChatResponse response;
+            if (response.ParseFromString(rsp) && response.err_code() != 0) {
+                LX_LOG_WARN("story turn rejected: {}", response.err_msg());
+            }
+        } catch (const rpc::RpcError& e) {
+            LX_LOG_ERROR("story turn rpc failed: {}", e.what());
+        }
+        return;
+    }
+    // 普通 AI 单聊
     AiSubmitChatRequest request;
     request.set_conv_id(convId);
     request.set_ai_uid(aiUid);

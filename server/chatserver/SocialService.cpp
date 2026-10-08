@@ -391,9 +391,10 @@ std::pair<std::string, std::vector<SocialService::Delivery>> SocialService::hand
     }
 
     const int64_t convId = m_idGen->nextId();
-    if (!conn->execute("INSERT INTO t_conversation (id, type, name, owner_uid) VALUES (" +
-                       std::to_string(convId) + ", 2, '" + conn->escapeString(request.name()) +
-                       "', " + std::to_string(ownerUid) + ")")) {
+    // member_key 仅单聊使用，群会话必须写 NULL（写 '' 会与唯一键 uk_member_key 冲突——空串重复）
+    if (!conn->execute("INSERT INTO t_conversation (id, type, member_key, name, owner_uid) VALUES (" +
+                       std::to_string(convId) + ", 2, NULL, '" +
+                       conn->escapeString(request.name()) + "', " + std::to_string(ownerUid) + ")")) {
         response.set_err_code(500);
         response.set_err_msg("db failed");
         return {response.SerializeAsString(), deliveries};

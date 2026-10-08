@@ -3,6 +3,7 @@
  * @brief AIServer 进程入口：RPC 9003（docs/01 §6 端口规划）。
  */
 #include "TavernService.h"
+#include "StoryService.h"
 
 #include "lingxi/config/Config.h"
 #include "lingxi/db/MySqlPool.h"
@@ -54,8 +55,13 @@ int main() {
         chatHost, static_cast<unsigned short>(chatRpcPort), 2);
     tavern.setPushChannel(pushChannel.get(), 1);
 
+    lingxi::StoryService story(dbPool.get(), idGen.get(), handlerPool, tavern.llm());
+
     lingxi::rpc::RpcServer rpcServer(ioContext, rpcPort, handlerPool);
     tavern.registerHandlers(rpcServer);
+    story.registerHandlers(rpcServer);
+    tavern.setPushChannel(pushChannel.get(), 1);
+    story.setPushChannel(pushChannel.get());
     rpcServer.start();
 
     ioContext.run();
